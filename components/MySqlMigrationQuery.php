@@ -65,146 +65,207 @@ class MySqlMigrationQuery
 
     protected static function getSingular($table, $prod, $migrationData)
     {
-
-        $data = [];
-        $data['id'] = $table;
-        $data['table'] = $table;
-        $data['engine'] = true;
-        $data['engineType'] = $prod['engine'];
-        $data['primary'] = true;
-        $data['primaryKeys'] = "";
-        $data['autoIncrement'] = true;
-        $data['autoIncrementKey'] = '';
-        $data['unique'] = true;
-        $data['uniqueKeys'] = "";
-        $data['index'] = true;
-        $data['indexKeys'] = "";
-        $data['rows'] = true;
-        $data['cols'] = true;
-        $data['maxType'] = false;
-        $data['maxId'] = true;
-        $data['colInfo'] = $prod['colInfo'];
-        $data['error'] = false;
-        $data['errorSummary'] = [];
-
-        //dd($prod);die();
+        $object = new stdClass();
+        $object->id = $table;
+        $object->table = $table;
+        $object->engine = false;
+        $object->engineType = '';
+        $object->primary = false;
+        $object->primaryKeys = '';
+        $object->autoIncrement = false;
+        $object->autoIncrementKey = '';
+        $object->unique = false;
+        $object->uniqueKeys = '';
+        $object->index = false;
+        $object->indexKeys = '';
+        $object->rows = 0;
+        $object->cols = 0;
+        $object->maxType = '';
+        $object->maxId = '';
+        $object->colInfo = '';
+        $object->error = false;
+        $object->errorSummary = [];
 
         if ($prod['engine'] !== $migrationData['engine']) {
-            $data['engine'] = false;
-            $data['engineType'] = $prod['engine'];
-            $data['errorSummary'][] = "<b>Engine</b> doesn't match";
+            $object->engine = false;
+            $object->engineType = $prod['engine'];
+            $object->errorSummary[] = "<b>Engine</b> doesn't match";
         }
 
         if ($prod['autoIncrement'] !== $migrationData['autoIncrement']) {
-            $data['autoIncrement'] = false;
-            $data['autoIncrementKey'] = $prod['autoIncrement'];
-            $data['error'] = true;
-            $data['errorSummary'][] = "<b> Auto Increment</b> <samp>(" . $prod['autoIncrement'] . ")<samp> doesn't set. ";
+            $object->autoIncrement = false;
+            $object->autoIncrementKey = $prod['autoIncrement'];
+            $object->error = true;
+            $object->errorSummary[] = "<b>Auto Increment</b> <samp>(" . $prod['autoIncrement'] . ")<samp> doesn't set. ";
         }
 
         if (!empty(array_diff($prod['primary'], $migrationData['primary']))) {
-            $data['primary'] = false;
-            $data['error'] = true;
+            $object->primary = false;
+            $object->error = true;
             $arrayDiff = array_diff($prod['primary'], $migrationData['primary']);
-            $data['primaryKeys'] = $arrayDiff;
+            $object->primaryKeys = $arrayDiff;
             if (count($arrayDiff) === 1) {
                 $arrayDiff = '["' . $arrayDiff[0] . '"]';
             } else {
                 $arrayDiff = json_encode($arrayDiff);
             }
-            $data['errorSummary'][] = "<b> Primary Key</b> doesn't match columns <samp>" . $arrayDiff . "</samp>";
+            $object->errorSummary[] = "<b>Primary Key</b> doesn't match columns <samp>" . $arrayDiff . "</samp>";
         }
 
         if (!empty(array_diff($prod['unique'], $migrationData['unique']))) {
-            $data['unique'] = false;
-            $data['error'] = true;
+            $object->unique = false;
+            $object->error = true;
             $arrayDiff = array_diff($prod['unique'], $migrationData['unique']);
-            $data['uniqueKeys'] = $arrayDiff;
+            $object->uniqueKeys = $arrayDiff;
             if (count($arrayDiff) === 1) {
                 $arrayDiff = '["' . $arrayDiff[0] . '"]';
             } else {
                 $arrayDiff = json_encode($arrayDiff);
             }
-            $data['errorSummary'][] = "<b> Unique Key</b> doesn't match columns <samp>" . $arrayDiff . "</samp>";
+            $object->errorSummary[] = "<b>Unique Key</b> doesn't match columns <samp>" . $arrayDiff . "</samp>";
         }
 
         if (!empty(array_diff($prod['index'], $migrationData['index']))) {
-            $data['index'] = false;
-            $data['error'] = true;
+            $object->index = false;
+            $object->error = true;
             $arrayDiff = array_diff($prod['index'], $migrationData['index']);
+            $object->indexKeys = $arrayDiff;
             if (count($arrayDiff) > 1) {
                 $arrayDiff = json_encode($arrayDiff);
             } else {
                 $arrayDiff = '[ "' . $arrayDiff[0] . '" ]';
             }
-            $data['indexKeys'] = $arrayDiff;
-            $data['errorSummary'][] = "<b>Index Key</b> doesn't match <samp>" . $arrayDiff . "</samp>";
+            $object->errorSummary[] = "<b>Index Key</b> doesn't match <samp>" . $arrayDiff . "</samp>";
+        }
+
+        if ($prod['rows'] !== $migrationData['rows']) {
+            $object->rows = false;
+            $object->error = true;
+            $object->errorSummary[] = '<b>Rows</b> ' . $prod['rows'] . ' Founded ' . $migrationData['rows'] . '<b><i> Diff</i></b>:  ' . ($prod['rows'] - $migrationData['rows']) . ' rows';
         }
 
         if ($prod['cols'] !== $migrationData['cols']) {
-            $data['cols'] = false;
-            $data['error'] = true;
-            $data['errorSummary'][] = "<b> Columns </b> doesn't match founded: <b>" . $migrationData['cols'] . "</b> out of <b>" . $prod['cols'] . "</b>";
+            $object->cols = false;
+            $object->error = true;
+            $object->errorSummary[] = "<b>Columns </b> doesn't match founded: <b>" . $migrationData['cols'] . "</b> out of <b>" . $prod['cols'] . "</b>";
 
             $missingCol = [];
 
             foreach ($prod['colInfo'] as $colInfo) {
+                $colName = trim($colInfo['COLUMN_NAME']); // country_code
                 $colKey = trim($colInfo['COLUMN_KEY']); // PRI, UNI, MUL, ''
                 if (empty($colKey)) {
-                    $colName = trim($colInfo['COLUMN_NAME']); // country_code
                     $isColMatch = false;
                     foreach ($migrationData['colInfo'] as $migColInfo) {
                         $migColName = trim($migColInfo['COLUMN_NAME']);
-                        if (!$isColMatch) {
-                            $beforeCol = $migColName;
-                        }
                         if ($migColName === $colName) {
                             $isColMatch = true;
+
                         }
                     }
+
                     if (!$isColMatch) {
-                        $data['error'] = true;
                         $missingCol[] = $colName;
                     }
                 }
             }
 
             if (count($missingCol) > 0) {
-                $data['error'] = true;
                 if (count($missingCol) > 1) {
                     $missingCol = json_encode($missingCol);
                 } else {
                     $missingCol = '[ "' . $missingCol[0] . '" ]';
                 }
-                $data['errorSummary'][] = "<samp> <b> " . $missingCol . "</b> colmumns doesn't Found</samp>";
+
+                $object->errorSummary[] = "<samp>-<b> " . $missingCol . "</b> colmumns doesn't Found</samp>";
             }
         }
 
-        if ($prod['rows'] !== $migrationData['rows']) {
-            $data['rows'] = false;
-            $data['error'] = true;
-            $data['errorSummary'][] = '<b>Rows</b> ' . $prod['rows'] . ' Founded ' . $migrationData['rows'] . '<b><i> Diff</i></b>:  ' . ($prod['rows'] - $migrationData['rows']) . ' rows';
+        foreach ($prod['colInfo'] as $colInfo) {
+            $colName = trim($colInfo['COLUMN_NAME']); // country_code
+            $colKey = trim($colInfo['COLUMN_KEY']); // PRI, UNI, MUL, ''
+            $colDataType = trim($colInfo['DATA_TYPE']); // varchar, char, int, 'timestamp', '
+            $colCharMaxLength = trim($colInfo['CHARACTER_MAXIMUM_LENGTH']); // 255=>varchar, 2=>char, int=>'' ->check NUMERIC_PRECISION
+            $colNumberPrecision = trim($colInfo['NUMERIC_PRECISION']); // 255=>varchar, 2=>char, int=>'' ->check NUMERIC_PRECISION, 'tinyint'
+            $colDatetimePrecision = trim($colInfo['DATETIME_PRECISION']); // 255=>varchar, 2=>char, int=>'' ->check NUMERIC_PRECISION, 'tinyint'
+            $colDefault = trim($colInfo['COLUMN_DEFAULT']); // 1, 'Running', 'CURRENT_TIMESTAMP'
+            $colType = trim($colInfo['COLUMN_TYPE']); // timestamp,
+            $colExtra = trim($colInfo['EXTRA']); // DEFAULT_GENERATED,
+            $colCollationName = trim($colInfo['COLLATION_NAME']); // utf8mb4_unicode_ci,
+
+            if (true) {
+                foreach ($migrationData['colInfo'] as $migColInfo) {
+                    $migColName = trim($migColInfo['COLUMN_NAME']);
+                    $migColKey = trim($migColInfo['COLUMN_KEY']); // PRI, UNI, MUL, ''
+                    $migColDataType = trim($migColInfo['DATA_TYPE']); // varchar, char, int, 'timestamp', '
+                    $migColCharMaxLenght = trim($migColInfo['CHARACTER_MAXIMUM_LENGTH']); // 255=>varchar, 2=>char, int=>'' ->check NUMERIC_PRECISION
+                    $migColNumberPrecision = trim($migColInfo['NUMERIC_PRECISION']); // 255=>varchar, 2=>char, int=>'' ->check NUMERIC_PRECISION, 'tinyint'
+                    $migColDateTimePrecision = trim($migColInfo['DATETIME_PRECISION']); // 255=>varchar, 2=>char, int=>'' ->check NUMERIC_PRECISION, 'tinyint'
+                    $migColDefault = trim($migColInfo['COLUMN_DEFAULT']); // 1, 'Running', 'CURRENT_TIMESTAMP'
+                    $migColType = trim($migColInfo['COLUMN_TYPE']); // timestamp,
+                    $migColExtra = trim($migColInfo['EXTRA']); // DEFAULT_GENERATED,
+                    $migColCollationName = trim($migColInfo['COLLATION_NAME']); // utf8mb4_unicode_ci
+                    if ($migColName === $colName) {
+
+                        $colAttributeError = [];
+
+                        if($table==='userProfile' && $colName==='profilePicture'){
+                            //dd($colInfo, $migColInfo, $colCollationName, $migColCollationName);die();
+                        }
+
+                        if ($colDataType !== $migColDataType) {
+                            $colAttributeError[] = "&ensp;<samp>type doesn't match actual(<b>${colDataType}</b>) founded(<b>(${migColDataType}</b>)</samp>";
+                        }
+
+                        if (!empty($colCharMaxLength) && ($colCharMaxLength!==$migColCharMaxLenght)) {
+                            $colAttributeError[] = "&ensp;<samp>length doesn't match actual(<b>${colCharMaxLength}</b>) founded(<b>${migColCharMaxLenght}</b>)</samp>";
+                        }
+
+                        if (!empty($colNumberPrecision) && ($colNumberPrecision!==$migColNumberPrecision)) {
+                            $colAttributeError[] = "&ensp;<samp>length doesn't match actual(<b>${colNumberPrecision}</b>) founded(<b>${migColNumberPrecision}</b>)</samp>";
+                        }
+
+                        if (!empty($colDatetimePrecision) && ($colDatetimePrecision!==$migColDateTimePrecision)) {
+                        }
+
+                        if (!empty($migColDefault) && ($colDefault !== $migColDefault)) {
+                            $colAttributeError[] = "&ensp;<samp>default value doesn't match actual(<b>${colDefault}</b>) founded(<b>${migColDefault}</b>)</samp>";
+                        }
+
+                        if (!empty($colCollationName) && ($colCollationName !== $migColCollationName)) {
+                            $colAttributeError[] = "&ensp;<samp>collation doesn't match actual(<b>${colCollationName}</b>) founded(<b>${migColCollationName}</b>)</samp>";
+                        }
+
+                        if(count($colAttributeError)>0){
+                            $object->error = true;
+                            $object->errorSummary[] = "<b>Column</b> <u>${colName}</u> attributes erros:";
+                            $object->errorSummary = array_merge($object->errorSummary, $colAttributeError);
+                        }
+                    }
+                }
+            }
         }
+
 
         if ($prod['maxId'] !== $migrationData['maxId'] && ($prod['primary'] === $migrationData['primary'])) {
-            $data['maxId'] = false;
-            $data['error'] = true;
-            $data['errorSummary'][] = "<b>MaxId</b> doesn't match columnsed: " . $prod['maxId'] . ' Founded ' . $migrationData['maxId'];
+            $object->maxId = false;
+            $object->error = true;
+            $object->errorSummary[] = "<b>MaxId</b> doesn't match columnsed: " . $prod['maxId'] . ' Founded ' . $migrationData['maxId'];
         }
 
-        return $data;
+        return $object;
+
     }
 
-    public static function combinedData($prodData, $migrationsData)
+    public
+    static function combinedData($prodData, $migrationsData)
     {
         $map = [];
         foreach ($prodData as $table => $prod) {
             if (isset($migrationsData[$table])) {
                 $migrationData = $migrationsData[$table];
-                $object = (object) self::getSingular($table, $prod, $migrationData);
-                $map[] = $object;
-            }else{
-
+                $map[] = self::getSingular($table, $prod, $migrationData);
+            } else {
                 $object = new stdClass();
                 $object->id = $table;
                 $object->table = $table;
@@ -229,15 +290,15 @@ class MySqlMigrationQuery
             }
         }
 
-        return (object) $map;
+        return (object)$map;
     }
 
-    public static function bulkInsert()
+    public
+    static function bulkInsert()
     {
         $prodData = MySqlMigrationQuery::getStatics(Yii::$app->prodDb);
         $migrateData = MySqlMigrationQuery::getStatics(Yii::$app->migrateDb);
         $mappingData = MySqlMigrationQuery::combinedData($prodData, $migrateData);
-
         //dd($mappingData); die();
         if ($mappingData) {
             $tableCompare = new TableCompare();

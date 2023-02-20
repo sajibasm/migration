@@ -147,6 +147,7 @@ Icon::map($this);
                         //'contentOptions' => ['style' => 'width: 95px;'],
                     ],
 
+                    'createdAt',
                     //'processedAt',
 //            [
 //                'class' => ActionColumn::className(),

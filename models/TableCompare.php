@@ -2,6 +2,7 @@
 
 namespace app\models;
 
+use DateTime;
 use Yii;
 
 /**
@@ -99,8 +100,49 @@ class TableCompare extends \yii\db\ActiveRecord
             'isError' => Yii::t('app', 'Error'),
             'errorSummary' => Yii::t('app', 'Summary'),
             'status' => Yii::t('app', 'Status'),
-            'createdAt' => Yii::t('app', 'CreatedAt'),
+            'PullAt' => Yii::t('app', 'CreatedAt'),
             'processedAt' => Yii::t('app', 'ProcessedAt'),
         ];
     }
+
+
+   public function timeElapsedString($datetime, $full = false) {
+        $now = new DateTime;
+        $ago = new DateTime($datetime);
+        $diff = $now->diff($ago);
+        $diff->w = floor($diff->d / 7);
+        $diff->d -= $diff->w * 7;
+        $string = array(
+            'y' => 'year',
+            'm' => 'month',
+            'w' => 'week',
+            'd' => 'day',
+            'h' => 'hour',
+            'i' => 'min',
+            's' => 'sec',
+        );
+        foreach ($string as $k => &$v) {
+            if ($diff->$k) {
+                $v = $diff->$k . ' ' . $v . ($diff->$k > 1 ? 's' : '');
+            } else {
+                unset($string[$k]);
+            }
+        }
+
+        if (!$full) $string = array_slice($string, 0, 1);
+        return $string ? implode(', ', $string) . ' ago' : 'just now';
+    }
+    public function afterFind()
+    {
+        if(!empty($this->createdAt)){
+            $this->createdAt = self::timeElapsedString($this->createdAt);
+        }
+
+        if(!empty($this->createdAt)){
+            $this->processedAt = self::timeElapsedString($this->processedAt);
+        }
+
+        parent::afterFind();
+    }
+
 }
