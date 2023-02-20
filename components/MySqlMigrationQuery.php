@@ -147,7 +147,7 @@ class MySqlMigrationQuery
         if ($prod['cols'] !== $migrationData['cols']) {
             $object->cols = false;
             $object->error = true;
-            $object->errorSummary[] = "<b>Columns </b> doesn't match founded: <b>" . $migrationData['cols'] . "</b> out of <b>" . $prod['cols'] . "</b>";
+            $object->errorSummary[] = "<b>Columns </b> doesn't match founded(<b>" . $migrationData['cols'] . ")</b> out of <b>" . $prod['cols'] . "</b>";
 
             $missingCol = [];
 
@@ -193,57 +193,56 @@ class MySqlMigrationQuery
             $colExtra = trim($colInfo['EXTRA']); // DEFAULT_GENERATED,
             $colCollationName = trim($colInfo['COLLATION_NAME']); // utf8mb4_unicode_ci,
 
-            if (true) {
-                foreach ($migrationData['colInfo'] as $migColInfo) {
-                    $migColName = trim($migColInfo['COLUMN_NAME']);
-                    $migColKey = trim($migColInfo['COLUMN_KEY']); // PRI, UNI, MUL, ''
-                    $migColDataType = trim($migColInfo['DATA_TYPE']); // varchar, char, int, 'timestamp', '
-                    $migColCharMaxLenght = trim($migColInfo['CHARACTER_MAXIMUM_LENGTH']); // 255=>varchar, 2=>char, int=>'' ->check NUMERIC_PRECISION
-                    $migColNumberPrecision = trim($migColInfo['NUMERIC_PRECISION']); // 255=>varchar, 2=>char, int=>'' ->check NUMERIC_PRECISION, 'tinyint'
-                    $migColDateTimePrecision = trim($migColInfo['DATETIME_PRECISION']); // 255=>varchar, 2=>char, int=>'' ->check NUMERIC_PRECISION, 'tinyint'
-                    $migColDefault = trim($migColInfo['COLUMN_DEFAULT']); // 1, 'Running', 'CURRENT_TIMESTAMP'
-                    $migColType = trim($migColInfo['COLUMN_TYPE']); // timestamp,
-                    $migColExtra = trim($migColInfo['EXTRA']); // DEFAULT_GENERATED,
-                    $migColCollationName = trim($migColInfo['COLLATION_NAME']); // utf8mb4_unicode_ci
-                    if ($migColName === $colName) {
+            foreach ($migrationData['colInfo'] as $migColInfo) {
+                $migColName = trim($migColInfo['COLUMN_NAME']);
+                $migColKey = trim($migColInfo['COLUMN_KEY']); // PRI, UNI, MUL, ''
+                $migColDataType = trim($migColInfo['DATA_TYPE']); // varchar, char, int, 'timestamp', '
+                $migColCharMaxLenght = trim($migColInfo['CHARACTER_MAXIMUM_LENGTH']); // 255=>varchar, 2=>char, int=>'' ->check NUMERIC_PRECISION
+                $migColNumberPrecision = trim($migColInfo['NUMERIC_PRECISION']); // 255=>varchar, 2=>char, int=>'' ->check NUMERIC_PRECISION, 'tinyint'
+                $migColDateTimePrecision = trim($migColInfo['DATETIME_PRECISION']); // 255=>varchar, 2=>char, int=>'' ->check NUMERIC_PRECISION, 'tinyint'
+                $migColDefault = trim($migColInfo['COLUMN_DEFAULT']); // 1, 'Running', 'CURRENT_TIMESTAMP'
+                $migColType = trim($migColInfo['COLUMN_TYPE']); // timestamp,
+                $migColExtra = trim($migColInfo['EXTRA']); // DEFAULT_GENERATED,
+                $migColCollationName = trim($migColInfo['COLLATION_NAME']); // utf8mb4_unicode_ci
+                if ($migColName === $colName) {
 
-                        $colAttributeError = [];
+                    $colAttributeError = [];
 
-                        if($table==='userProfile' && $colName==='profilePicture'){
-                            //dd($colInfo, $migColInfo, $colCollationName, $migColCollationName);die();
-                        }
+                    if ($table === 'userProfile' && $colName === 'profilePicture') {
+                        //dd($colInfo, $migColInfo, $colCollationName, $migColCollationName);die();
+                    }
 
-                        if ($colDataType !== $migColDataType) {
-                            $colAttributeError[] = "&ensp;<samp>type doesn't match actual(<b>${colDataType}</b>) founded(<b>(${migColDataType}</b>)</samp>";
-                        }
+                    if ($colDataType !== $migColDataType) {
+                        $colAttributeError[] = "&ensp;<samp>type doesn't match actual(<b>${colDataType}</b>) founded(<b>(${migColDataType}</b>)</samp>";
+                    }
 
-                        if (!empty($colCharMaxLength) && ($colCharMaxLength!==$migColCharMaxLenght)) {
-                            $colAttributeError[] = "&ensp;<samp>length doesn't match actual(<b>${colCharMaxLength}</b>) founded(<b>${migColCharMaxLenght}</b>)</samp>";
-                        }
+                    if (!empty($colCharMaxLength) && ($colCharMaxLength !== $migColCharMaxLenght)) {
+                        $colAttributeError[] = "&ensp;<samp>length doesn't match actual(<b>${colCharMaxLength}</b>) founded(<b>${migColCharMaxLenght}</b>)</samp>";
+                    }
 
-                        if (!empty($colNumberPrecision) && ($colNumberPrecision!==$migColNumberPrecision)) {
-                            $colAttributeError[] = "&ensp;<samp>length doesn't match actual(<b>${colNumberPrecision}</b>) founded(<b>${migColNumberPrecision}</b>)</samp>";
-                        }
+                    if (!empty($colNumberPrecision) && ($colNumberPrecision !== $migColNumberPrecision)) {
+                        $colAttributeError[] = "&ensp;<samp>length doesn't match actual(<b>${colNumberPrecision}</b>) founded(<b>${migColNumberPrecision}</b>)</samp>";
+                    }
 
-                        if (!empty($colDatetimePrecision) && ($colDatetimePrecision!==$migColDateTimePrecision)) {
-                        }
+                    if (!empty($colDatetimePrecision) && ($colDatetimePrecision !== $migColDateTimePrecision)) {
+                    }
 
-                        if (!empty($migColDefault) && ($colDefault !== $migColDefault)) {
-                            $colAttributeError[] = "&ensp;<samp>default value doesn't match actual(<b>${colDefault}</b>) founded(<b>${migColDefault}</b>)</samp>";
-                        }
+                    if (!empty($migColDefault) && ($colDefault !== $migColDefault)) {
+                        $colAttributeError[] = "&ensp;<samp>default value doesn't match actual(<b>${colDefault}</b>) founded(<b>${migColDefault}</b>)</samp>";
+                    }
 
-                        if (!empty($colCollationName) && ($colCollationName !== $migColCollationName)) {
-                            $colAttributeError[] = "&ensp;<samp>collation doesn't match actual(<b>${colCollationName}</b>) founded(<b>${migColCollationName}</b>)</samp>";
-                        }
+                    if (!empty($colCollationName) && ($colCollationName !== $migColCollationName)) {
+                        $colAttributeError[] = "&ensp;<samp>collation doesn't match actual(<b>${colCollationName}</b>) founded(<b>${migColCollationName}</b>)</samp>";
+                    }
 
-                        if(count($colAttributeError)>0){
-                            $object->error = true;
-                            $object->errorSummary[] = "<b>Column</b> <u>${colName}</u> attributes erros:";
-                            $object->errorSummary = array_merge($object->errorSummary, $colAttributeError);
-                        }
+                    if (count($colAttributeError) > 0) {
+                        $object->error = true;
+                        $object->errorSummary[] = "<b>Column</b> <u>${colName}</u> attributes erros:";
+                        $object->errorSummary = array_merge($object->errorSummary, $colAttributeError);
                     }
                 }
             }
+
         }
 
 

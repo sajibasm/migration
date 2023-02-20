@@ -3,6 +3,7 @@
 use app\models\TableCompare;
 use kartik\icons\Icon;
 use yii\helpers\Html;
+use yii\helpers\Json;
 use yii\helpers\Url;
 use yii\grid\ActionColumn;
 use yii\grid\GridView;
@@ -22,7 +23,7 @@ Icon::map($this);
         <div class="table-compare-index">
             <h1><?= Html::encode($this->title) ?></h1>
             <p>
-                <?= Html::a(Yii::t('app', 'Create Table Compare'), ['pull'], ['class' => 'btn btn-success']) ?>
+                <?= Html::a(Yii::t('app', 'Create Compare'), ['pull'], ['class' => 'btn btn-success']) ?>
             </p>
 
             <?php Pjax::begin(); ?>
@@ -122,9 +123,9 @@ Icon::map($this);
                     [
                         'attribute' => 'errorSummary',
                         'format' => 'html',
-                        //'contentOptions' => ['style' => 'width: 95px;'],
+                        'contentOptions' => ['style' => 'width: 100px;'],
                         'value' => function ($model) {
-                            return !$model->isError ? '- All Ok' : implode("<br>", \yii\helpers\Json::decode($model->errorSummary));
+                            return !$model->isError ? '- All Ok' : implode("<br>", Json::decode($model->errorSummary));
                         }
                     ],
 
