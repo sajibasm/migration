@@ -19,8 +19,8 @@ use Yii;
  * @property string|null $uniqueKeys
  * @property int $isIndex
  * @property string|null $indexKeys
- * @property string|null $maxType
- * @property string $maxValue
+ * @property string|null $maxColType
+ * @property string $maxColValue
  * @property int $cols
  * @property int $rows
  * @property string|null $columnStatics
@@ -42,6 +42,13 @@ class TableCompare extends \yii\db\ActiveRecord
     const STATUS_DATA_MIGRATION  = 2;
     const STATUS_PROCESSED  = 9;
 
+    const STATUS_LABEL = [
+        self::STATUS_PULL=>'Pull',
+        self::STATUS_SCHAMA_MIGRATION=>'Schema Sync...',
+        self::STATUS_DATA_MIGRATION=>'Data Sync ...',
+        self::STATUS_PROCESSED=>'Processed',
+    ];
+
     /**
      * {@inheritdoc}
      */
@@ -57,12 +64,12 @@ class TableCompare extends \yii\db\ActiveRecord
     {
         return [
             [['tableName'], 'unique'],
-            [['tableName', 'engineType', 'autoIncrement', 'maxValue'], 'required'],
+            [['tableName', 'autoIncrement'], 'required'],
             [['isEngine', 'autoIncrement', 'isPrimary', 'isUnique', 'isIndex', 'cols', 'rows', 'isError', 'status'], 'integer'],
             [['primaryKeys', 'uniqueKeys', 'indexKeys', 'columnStatics', 'errorSummary', 'createdAt', 'processedAt'], 'safe'],
             [['tableName'], 'string', 'max' => 255],
-            [['engineType'], 'string', 'max' => 20],
-            [['autoIncrementKey', 'maxType', 'maxValue'], 'string', 'max' => 50],
+            [['engineType', 'maxColType'], 'string', 'max' => 20],
+            [['autoIncrementKey', 'maxColValue'], 'string', 'max' => 50],
         ];
     }
 
@@ -84,8 +91,8 @@ class TableCompare extends \yii\db\ActiveRecord
             'uniqueKeys' => Yii::t('app', 'Unique Keys'),
             'isIndex' => Yii::t('app', 'Index'),
             'indexKeys' => Yii::t('app', 'Index Keys'),
-            'maxType' => Yii::t('app', 'Max'),
-            'maxValue' => Yii::t('app', 'Max Value'),
+            'maxColType' => Yii::t('app', 'Max'),
+            'maxColValue' => Yii::t('app', 'Max Value'),
             'cols' => Yii::t('app', 'Cols'),
             'rows' => Yii::t('app', 'Rows'),
             'columnStatics' => Yii::t('app', 'Statics'),

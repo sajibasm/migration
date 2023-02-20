@@ -3,6 +3,7 @@
 namespace app\components;
 
 use app\models\TableCompare;
+use stdClass;
 use Yii;
 use yii\helpers\Json;
 
@@ -84,21 +85,21 @@ class MySqlMigrationQuery
         $data['maxId'] = true;
         $data['colInfo'] = $prod['colInfo'];
         $data['error'] = false;
-        $data['errorSummary'] = '';
+        $data['errorSummary'] = [];
 
         //dd($prod);die();
 
         if ($prod['engine'] !== $migrationData['engine']) {
             $data['engine'] = false;
             $data['engineType'] = $prod['engine'];
-            $data['errorSummary'] .= "- <b>Engine</b> doesn't match" . "<br>";
+            $data['errorSummary'][] = "<b>Engine</b> doesn't match";
         }
 
         if ($prod['autoIncrement'] !== $migrationData['autoIncrement']) {
             $data['autoIncrement'] = false;
             $data['autoIncrementKey'] = $prod['autoIncrement'];
             $data['error'] = true;
-            $data['errorSummary'] .= "- <b> Auto Increment <samp>(" . $prod['autoIncrement'] . ")<samp></b> doesn't set. " . "<br>";
+            $data['errorSummary'][] = "<b> Auto Increment</b> <samp>(" . $prod['autoIncrement'] . ")<samp> doesn't set. ";
         }
 
         if (!empty(array_diff($prod['primary'], $migrationData['primary']))) {
@@ -111,7 +112,7 @@ class MySqlMigrationQuery
             } else {
                 $arrayDiff = json_encode($arrayDiff);
             }
-            $data['errorSummary'] .= "- <b> Primary Key</b> doesn't match columns <samp>" . $arrayDiff . "</samp><br>";
+            $data['errorSummary'][] = "<b> Primary Key</b> doesn't match columns <samp>" . $arrayDiff . "</samp>";
         }
 
         if (!empty(array_diff($prod['unique'], $migrationData['unique']))) {
@@ -124,7 +125,7 @@ class MySqlMigrationQuery
             } else {
                 $arrayDiff = json_encode($arrayDiff);
             }
-            $data['errorSummary'] .= "- <b> Unique Key</b> doesn't match columns <samp>" . $arrayDiff . "</samp><br>";
+            $data['errorSummary'][] = "<b> Unique Key</b> doesn't match columns <samp>" . $arrayDiff . "</samp>";
         }
 
         if (!empty(array_diff($prod['index'], $migrationData['index']))) {
@@ -137,13 +138,13 @@ class MySqlMigrationQuery
                 $arrayDiff = '[ "' . $arrayDiff[0] . '" ]';
             }
             $data['indexKeys'] = $arrayDiff;
-            $data['errorSummary'] .= "- <b>Index Key</b> doesn't match <samp>" . $arrayDiff . "</samp><br>";
+            $data['errorSummary'][] = "<b>Index Key</b> doesn't match <samp>" . $arrayDiff . "</samp>";
         }
 
         if ($prod['cols'] !== $migrationData['cols']) {
             $data['cols'] = false;
             $data['error'] = true;
-            $data['errorSummary'] .= "- <b> Columns </b> doesn't match founded: <b>" . $migrationData['cols'] . "</b> out of <b>" . $prod['cols'] . "</b><br>";
+            $data['errorSummary'][] = "<b> Columns </b> doesn't match founded: <b>" . $migrationData['cols'] . "</b> out of <b>" . $prod['cols'] . "</b>";
 
             $missingCol = [];
 
@@ -175,20 +176,20 @@ class MySqlMigrationQuery
                 } else {
                     $missingCol = '[ "' . $missingCol[0] . '" ]';
                 }
-                $data['errorSummary'] .= "- <samp> <b> " . $missingCol . "</b> colmumns doesn't Found</samp>.<br>";
+                $data['errorSummary'][] = "<samp> <b> " . $missingCol . "</b> colmumns doesn't Found</samp>";
             }
         }
 
         if ($prod['rows'] !== $migrationData['rows']) {
             $data['rows'] = false;
             $data['error'] = true;
-            $data['errorSummary'] .= '- <b>Rows</b> ' . $prod['rows'] . ' Founded ' . $migrationData['rows'] . '<b><i> Diff</i></b>:  ' . ($prod['rows'] - $migrationData['rows']) . ' rows' . "<br>";
+            $data['errorSummary'][] = '<b>Rows</b> ' . $prod['rows'] . ' Founded ' . $migrationData['rows'] . '<b><i> Diff</i></b>:  ' . ($prod['rows'] - $migrationData['rows']) . ' rows';
         }
 
         if ($prod['maxId'] !== $migrationData['maxId'] && ($prod['primary'] === $migrationData['primary'])) {
             $data['maxId'] = false;
             $data['error'] = true;
-            $data['errorSummary'] .= "- <b>MaxId</b> doesn't match columnsed: " . $prod['maxId'] . ' Founded ' . $migrationData['maxId'];
+            $data['errorSummary'][] = "<b>MaxId</b> doesn't match columnsed: " . $prod['maxId'] . ' Founded ' . $migrationData['maxId'];
         }
 
         return $data;
@@ -200,12 +201,35 @@ class MySqlMigrationQuery
         foreach ($prodData as $table => $prod) {
             if (isset($migrationsData[$table])) {
                 $migrationData = $migrationsData[$table];
-                $object = (object)self::getSingular($table, $prod, $migrationData);
+                $object = (object) self::getSingular($table, $prod, $migrationData);
+                $map[] = $object;
+            }else{
+
+                $object = new stdClass();
+                $object->id = $table;
+                $object->table = $table;
+                $object->engine = false;
+                $object->engineType = '';
+                $object->primary = false;
+                $object->primaryKeys = '';
+                $object->autoIncrement = false;
+                $object->autoIncrementKey = '';
+                $object->unique = false;
+                $object->uniqueKeys = '';
+                $object->index = false;
+                $object->indexKeys = '';
+                $object->rows = 0;
+                $object->cols = 0;
+                $object->maxType = '';
+                $object->maxId = '';
+                $object->colInfo = '';
+                $object->error = true;
+                $object->errorSummary = ["<b>${table}</b> table doesn't exist."];
                 $map[] = $object;
             }
         }
 
-        return (object)$map;
+        return (object) $map;
     }
 
     public static function bulkInsert()
@@ -229,13 +253,13 @@ class MySqlMigrationQuery
                 $tableCompare->uniqueKeys = Json::encode($object->uniqueKeys);
                 $tableCompare->isIndex = (int)$object->index;
                 $tableCompare->indexKeys = Json::encode($object->indexKeys);
-                $tableCompare->maxType = (string)$object->maxId;
-                $tableCompare->maxValue = (string)$object->maxId;
+                $tableCompare->maxColType = (string)$object->maxId;
+                $tableCompare->maxColValue = (string)$object->maxId;
                 $tableCompare->cols = (int)$object->cols;
                 $tableCompare->rows = (int)$object->rows;
                 $tableCompare->columnStatics = Json::encode($object->colInfo);
                 $tableCompare->isError = (int)$object->error;
-                $tableCompare->errorSummary = $object->errorSummary;
+                $tableCompare->errorSummary = Json::encode($object->errorSummary);
                 $tableCompare->status = TableCompare::STATUS_PULL;
                 $tableCompare->createdAt = date('Y-m-d h:i:s');
                 $tableCompare->processedAt = date('Y-m-d h:i:s');

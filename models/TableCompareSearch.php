@@ -18,7 +18,7 @@ class TableCompareSearch extends TableCompare
     {
         return [
             [['id', 'isEngine', 'autoIncrement', 'isPrimary', 'isUnique', 'isIndex', 'cols', 'rows', 'isError', 'status'], 'integer'],
-            [['tableName', 'engineType', 'autoIncrementKey', 'primaryKeys', 'uniqueKeys', 'indexKeys', 'maxType', 'maxValue', 'columnStatics', 'errorSummary', 'createdAt', 'processedAt'], 'safe'],
+            [['tableName', 'engineType', 'autoIncrementKey', 'primaryKeys', 'uniqueKeys', 'indexKeys', 'maxColType', 'maxColValue', 'columnStatics', 'errorSummary', 'createdAt', 'processedAt'], 'safe'],
         ];
     }
 
@@ -78,8 +78,8 @@ class TableCompareSearch extends TableCompare
             ->andFilterWhere(['like', 'primaryKeys', $this->primaryKeys])
             ->andFilterWhere(['like', 'uniqueKeys', $this->uniqueKeys])
             ->andFilterWhere(['like', 'indexKeys', $this->indexKeys])
-            ->andFilterWhere(['like', 'maxType', $this->maxType])
-            ->andFilterWhere(['like', 'maxValue', $this->maxValue])
+            ->andFilterWhere(['like', 'maxColType', $this->maxColType])
+            ->andFilterWhere(['like', 'maxColValue', $this->maxColValue])
             ->andFilterWhere(['like', 'columnStatics', $this->columnStatics])
             ->andFilterWhere(['like', 'errorSummary', $this->errorSummary]);
 

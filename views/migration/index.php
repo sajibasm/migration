@@ -1,4 +1,5 @@
-<?php use yii\grid\GridView;
+<?php use kartik\icons\Icon;
+use yii\grid\GridView;
 use yii\helpers\Html;
 use yii\helpers\Url;
 use yii\web\View;
@@ -43,7 +44,9 @@ $this->registerJs($script, View::POS_READY, 'Pjax');
         <div class="col-lg-12">
             <div class="card">
 
+
                 <div class="card-header">
+                    <?php echo Icon::show('user', ['class'=>'fa-2x', 'framework' => Icon::FAS]); ?>
                     <h4 class="card-title"><?= Html::encode($this->title) ?></h4>
                 </div>
 
