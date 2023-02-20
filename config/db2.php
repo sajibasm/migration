@@ -5,7 +5,7 @@ return [
     'dsn' => 'mysql:host=127.0.0.1;dbname=yii2_migration',
     'username' => 'root',
     'password' => 'root',
-    'charset' => 'utf8',
+    'charset' => 'utf8'
 
     // Schema cache options (for production environment)
     //'enableSchemaCache' => true,
