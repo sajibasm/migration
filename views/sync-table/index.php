@@ -37,14 +37,14 @@ Icon::map($this);
         ],
         'columns' => [
             ['class' => 'yii\grid\SerialColumn'],
-//            [
-//                    'attribute'=>'source.host',
-//                    'header'=>'Source Host',
-//            ],
-//            [
-//                'attribute'=>'destination.host',
-//                'header'=>'Destination Host',
-//            ],
+            [
+                    'attribute'=>'source.host',
+                    'header'=>'Source Host',
+            ],
+            [
+                'attribute'=>'destination.host',
+                'header'=>'Destination Host',
+            ],
 
             'tableName',
             [
@@ -65,12 +65,12 @@ Icon::map($this);
                     return $model->autoIncrement ? Icon::show('check') : Icon::show('close');
                 }
             ],
-            'autoIncrementKey',
-            [
-                'attribute' => 'autoIncrementKey',
-                'format' => 'html',
-                'contentOptions' => ['class' => 'text-center', 'style' => 'width: 10px;'],
-            ],
+            //'autoIncrementKey',
+//            [
+//                'attribute' => 'autoIncrementKey',
+//                'format' => 'html',
+//                'contentOptions' => ['class' => 'text-center', 'style' => 'width: 10px;'],
+//            ],
             [
                 'attribute' => 'isPrimary',
                 'format' => 'html',
@@ -79,7 +79,7 @@ Icon::map($this);
                     return $model->isPrimary ? Icon::show('check') : Icon::show('close');
                 }
             ],
-            'primaryKeys',
+            //'primaryKeys',
 
             [
                 'attribute' => 'isUnique',
@@ -89,7 +89,7 @@ Icon::map($this);
                     return $model->isUnique ? Icon::show('check') : Icon::show('close');
                 }
             ],
-            'uniqueKeys',
+            //'uniqueKeys',
             [
                 'attribute' => 'isIndex',
                 'format' => 'html',
@@ -98,7 +98,7 @@ Icon::map($this);
                     return $model->isIndex ? Icon::show('check') : Icon::show('close');
                 }
             ],
-            'indexKeys',
+            //'indexKeys',
             'maxColType',
             'maxColValue',
             'cols',
@@ -127,7 +127,7 @@ Icon::map($this);
                 //'contentOptions' => ['style' => 'width: 95px;'],
             ],
 
-            //'createdAt',
+            'createdAt',
             //'processedAt',
             [
                 'class' => ActionColumn::className(),
