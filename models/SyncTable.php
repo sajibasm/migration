@@ -23,8 +23,10 @@ use Yii;
  * @property string|null $indexKeys
  * @property string|null $maxColType
  * @property string|null $maxColValue
- * @property int|null $cols
- * @property int|null $rows
+ * @property int|null $numberOfCols
+ * @property int|null $numberOfRows
+ * * @property int|null $isCols
+ * @property int|null $isRows
  * @property string|null $columnStatics
  * @property int $isError
  * @property string|null $errorSummary
@@ -62,8 +64,9 @@ class SyncTable extends \yii\db\ActiveRecord
     public function rules()
     {
         return [
-            [['sourceDb', 'destinationDb'], 'required'],
-            [['sourceDb', 'destinationDb', 'isEngine', 'autoIncrement', 'isPrimary', 'isUnique', 'isIndex', 'cols', 'rows', 'isError', 'status'], 'integer'],
+            [['sourceDb', 'destinationDb', 'tableName'], 'required'],
+            [['tableName'], 'unique', 'targetAttribute' => ['tableName', 'destinationDb', 'sourceDb'], 'message' => 'Combined configuration already exist.'],
+            [['sourceDb', 'destinationDb', 'isEngine', 'autoIncrement', 'isPrimary', 'isUnique', 'isIndex', 'isCols', 'numberOfCols', 'isRows', 'numberOfRows', 'isError', 'status'], 'integer'],
             [['primaryKeys', 'uniqueKeys', 'indexKeys', 'columnStatics', 'errorSummary'], 'string'],
             [['createdAt', 'processedAt'], 'safe'],
             [['tableName'], 'string', 'max' => 100],
@@ -95,8 +98,10 @@ class SyncTable extends \yii\db\ActiveRecord
             'indexKeys' => Yii::t('app', 'Index Keys'),
             'maxColType' => Yii::t('app', 'MaxType'),
             'maxColValue' => Yii::t('app', 'MaxValue'),
-            'cols' => Yii::t('app', 'Cols'),
-            'rows' => Yii::t('app', 'Rows'),
+            'isCols' => Yii::t('app', 'Cols'),
+            'numberOfCols' => Yii::t('app', 'Cols'),
+            'isRows' => Yii::t('app', 'Rows'),
+            'numberOfRows' => Yii::t('app', 'Rows'),
             'columnStatics' => Yii::t('app', 'Statics'),
             'isError' => Yii::t('app', 'Error'),
             'errorSummary' => Yii::t('app', 'Summary'),
@@ -113,7 +118,7 @@ class SyncTable extends \yii\db\ActiveRecord
         $today = strtotime(date('Y-m-d H:i:s'));
 
         // It returns the time difference in Seconds...
-        $time_differnce = $today-$str;
+        $timeDiffernce = $today-$str;
 
         // To Calculate the time difference in Years...
         $years = 60*60*24*365;
@@ -130,39 +135,39 @@ class SyncTable extends \yii\db\ActiveRecord
         // To Calculate the time difference in Minutes...
         $minutes = 60;
 
-        if(intval($time_differnce/$years) > 1)
+        if(intval($timeDiffernce/$years) > 1)
         {
-            return intval($time_differnce/$years)." years ago";
-        }else if(intval($time_differnce/$years) > 0)
+            return intval($timeDiffernce/$years)." years ago";
+        }else if(intval($timeDiffernce/$years) > 0)
         {
-            return intval($time_differnce/$years)." year ago";
-        }else if(intval($time_differnce/$months) > 1)
+            return intval($timeDiffernce/$years)." year ago";
+        }else if(intval($timeDiffernce/$months) > 1)
         {
-            return intval($time_differnce/$months)." months ago";
-        }else if(intval(($time_differnce/$months)) > 0)
+            return intval($timeDiffernce/$months)." months ago";
+        }else if(intval(($timeDiffernce/$months)) > 0)
         {
-            return intval(($time_differnce/$months))." month ago";
-        }else if(intval(($time_differnce/$days)) > 1)
+            return intval(($timeDiffernce/$months))." month ago";
+        }else if(intval(($timeDiffernce/$days)) > 1)
         {
-            return intval(($time_differnce/$days))." days ago";
-        }else if (intval(($time_differnce/$days)) > 0)
+            return intval(($timeDiffernce/$days))." days ago";
+        }else if (intval(($timeDiffernce/$days)) > 0)
         {
-            return intval(($time_differnce/$days))." day ago";
-        }else if (intval(($time_differnce/$hours)) > 1)
+            return intval(($timeDiffernce/$days))." day ago";
+        }else if (intval(($timeDiffernce/$hours)) > 1)
         {
-            return intval(($time_differnce/$hours))." hours ago";
-        }else if (intval(($time_differnce/$hours)) > 0)
+            return intval(($timeDiffernce/$hours))." hours ago";
+        }else if (intval(($timeDiffernce/$hours)) > 0)
         {
-            return intval(($time_differnce/$hours))." hour ago";
-        }else if (intval(($time_differnce/$minutes)) > 1)
+            return intval(($timeDiffernce/$hours))." hour ago";
+        }else if (intval(($timeDiffernce/$minutes)) > 1)
         {
-            return intval(($time_differnce/$minutes))." minutes ago";
-        }else if (intval(($time_differnce/$minutes)) > 0)
+            return intval(($timeDiffernce/$minutes))." minutes ago";
+        }else if (intval(($timeDiffernce/$minutes)) > 0)
         {
-            return intval(($time_differnce/$minutes))." minute ago";
-        }else if (intval(($time_differnce)) > 1)
+            return intval(($timeDiffernce/$minutes))." minute ago";
+        }else if (intval(($timeDiffernce)) > 1)
         {
-            return intval(($time_differnce))." seconds ago";
+            return intval(($timeDiffernce))." seconds ago";
         }else
         {
             return "few seconds ago";

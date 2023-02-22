@@ -20,11 +20,11 @@ class MySQLSynchronization
             $db = DynamicConnection::getConnectionByModel($model);
             $database = $db->createCommand("SHOW DATABASES;")->queryAll();
             $syncHostDB = new SyncHostDb();
-            foreach ($database as $name){
+            foreach ($database as $name) {
                 $syncHostDB->host = $model->host;
                 $syncHostDB->dbname = $name['Database'];
                 $syncHostDB->type = $model->type;
-                if($syncHostDB->save()){
+                if ($syncHostDB->save()) {
                     unset($syncHostDB->id);
                     $syncHostDB->isNewRecord = true;
                 }
@@ -44,33 +44,35 @@ class MySQLSynchronization
 
     public static function getStatics($connection, $database)
     {
-        $prodData = [];
+        $data = [];
         $tableInfo = $connection->createCommand("SELECT * FROM  information_schema.TABLES WHERE  TABLE_SCHEMA = '${database}';")->queryAll();
         foreach ($tableInfo as $tableIndex => $table) {
             $tableName = $table['TABLE_NAME'];
             $signalInfo = $connection->createCommand("SELECT * FROM  information_schema.COLUMNS WHERE  TABLE_SCHEMA = '${database}' AND TABLE_NAME = '${tableName}';")->queryAll();
-            $prodData[$tableName]['engine'] = (string)$table['ENGINE'];
-            $prodData[$tableName]['table'] = (string)$tableName;
-            $prodData[$tableName]['autoIncrement'] = "";
-            $prodData[$tableName]['maxId'] = "";
-            $prodData[$tableName]['cols'] = (int)count($signalInfo);
-            $prodData[$tableName]['rows'] = (int)$connection->createCommand("SELECT COUNT(*) FROM `${tableName}`;")->queryScalar();
-            $prodData[$tableName]['primary'] = [];
-            $prodData[$tableName]['index'] = [];
-            $prodData[$tableName]['unique'] = [];
-            $prodData[$tableName]['colInfo'] = $signalInfo;
+            $data[$tableName]['host'] = (string)$connection->dsn;
+            $data[$tableName]['database'] = (string)$database;
+            $data[$tableName]['engine'] = (string)$table['ENGINE'];
+            $data[$tableName]['table'] = (string)$tableName;
+            $data[$tableName]['autoIncrement'] = "";
+            $data[$tableName]['maxId'] = "";
+            $data[$tableName]['cols'] = (int)count($signalInfo);
+            $data[$tableName]['rows'] = (int)$connection->createCommand("SELECT COUNT(*) FROM `${tableName}`;")->queryScalar();
+            $data[$tableName]['primary'] = [];
+            $data[$tableName]['index'] = [];
+            $data[$tableName]['unique'] = [];
+            $data[$tableName]['colInfo'] = $signalInfo;
             foreach ($signalInfo as $info) {
                 $colName = $info['COLUMN_NAME']; //id, uid, username
                 $colKey = $info['COLUMN_KEY']; // PRI, UNI, MUL
                 $colExtra = $info['EXTRA']; // auto_increment , null
                 if ($colKey === 'PRI') {
-                    $prodData[$tableName]['primary'][] = $colName;
+                    $data[$tableName]['primary'][] = $colName;
                 }
                 if ($colKey === 'UNI') {
-                    $prodData[$tableName]['unique'][] = $colName;
+                    $data[$tableName]['unique'][] = $colName;
                 }
                 if ($colExtra === 'auto_increment') {
-                    $prodData[$tableName]['autoIncrement'] = $colName;
+                    $data[$tableName]['autoIncrement'] = $colName;
                 }
             }
         }
@@ -81,16 +83,18 @@ class MySQLSynchronization
             $tableName = $statistic['TABLE_NAME'];
             $colName = $statistic['COLUMN_NAME'];
             if ($indexName !== 'PRIMARY') {
-                $prodData[$tableName]['index'][] = $colName;
+                $data[$tableName]['index'][] = $colName;
             }
         }
-        return $prodData;
+        return $data;
     }
 
-    protected static function getSingular($table, $prod, $migrationData)
+    protected static function getSingular($table, $source, $destination, $sourceHost, $destinationHost)
     {
         $object = new stdClass();
         $object->id = $table;
+        $object->sourceHost = $sourceHost;
+        $object->destinationHost = $destinationHost;
         $object->table = $table;
         $object->engine = true;
         $object->engineType = '';
@@ -102,31 +106,33 @@ class MySQLSynchronization
         $object->uniqueKeys = '';
         $object->index = true;
         $object->indexKeys = '';
-        $object->rows = 0;
-        $object->cols = 0;
+        $object->isCols = true;
+        $object->numberOfCols = 0;
+        $object->isRows = true;
+        $object->numberOfRows = 0;
         $object->maxType = '';
         $object->maxId = '';
         $object->colInfo = '';
         $object->error = false;
         $object->errorSummary = [];
 
-        if ($prod['engine'] !== $migrationData['engine']) {
+        if ($source['engine'] !== $destination['engine']) {
             $object->engine = false;
-            $object->engineType = $prod['engine'];
+            $object->engineType = $source['engine'];
             $object->errorSummary[] = "<b>Engine</b> doesn't match";
         }
 
-        if ($prod['autoIncrement'] !== $migrationData['autoIncrement']) {
+        if ($source['autoIncrement'] !== $destination['autoIncrement']) {
             $object->autoIncrement = false;
-            $object->autoIncrementKey = $prod['autoIncrement'];
+            $object->autoIncrementKey = $source['autoIncrement'];
             $object->error = true;
-            $object->errorSummary[] = "<b>Auto Increment</b> <samp>(" . $prod['autoIncrement'] . ")<samp> doesn't set. ";
+            $object->errorSummary[] = "<b>Auto Increment</b> <samp>(" . $source['autoIncrement'] . ")<samp> doesn't set. ";
         }
 
-        if (!empty(array_diff($prod['primary'], $migrationData['primary']))) {
+        if (!empty(array_diff($source['primary'], $destination['primary']))) {
             $object->primary = false;
             $object->error = true;
-            $arrayDiff = array_diff($prod['primary'], $migrationData['primary']);
+            $arrayDiff = array_diff($source['primary'], $destination['primary']);
             $object->primaryKeys = $arrayDiff;
             if (count($arrayDiff) === 1) {
                 $arrayDiff = '["' . $arrayDiff[0] . '"]';
@@ -136,10 +142,10 @@ class MySQLSynchronization
             $object->errorSummary[] = "<b>Primary Key</b> doesn't match columns <samp>" . $arrayDiff . "</samp>";
         }
 
-        if (!empty(array_diff($prod['unique'], $migrationData['unique']))) {
+        if (!empty(array_diff($source['unique'], $destination['unique']))) {
             $object->unique = false;
             $object->error = true;
-            $arrayDiff = array_diff($prod['unique'], $migrationData['unique']);
+            $arrayDiff = array_diff($source['unique'], $destination['unique']);
             $object->uniqueKeys = $arrayDiff;
             if (count($arrayDiff) === 1) {
                 $arrayDiff = '["' . $arrayDiff[0] . '"]';
@@ -149,10 +155,10 @@ class MySQLSynchronization
             $object->errorSummary[] = "<b>Unique Key</b> doesn't match columns <samp>" . $arrayDiff . "</samp>";
         }
 
-        if (!empty(array_diff($prod['index'], $migrationData['index']))) {
+        if (!empty(array_diff($source['index'], $destination['index']))) {
             $object->index = false;
             $object->error = true;
-            $arrayDiff = array_diff($prod['index'], $migrationData['index']);
+            $arrayDiff = array_diff($source['index'], $destination['index']);
             $object->indexKeys = $arrayDiff;
             if (count($arrayDiff) > 1) {
                 $arrayDiff = json_encode($arrayDiff);
@@ -162,25 +168,27 @@ class MySQLSynchronization
             $object->errorSummary[] = "<b>Index Key</b> doesn't match <samp>" . $arrayDiff . "</samp>";
         }
 
-        if ($prod['rows'] !== $migrationData['rows']) {
-            $object->rows = false;
+        if ($source['rows'] !== $destination['rows']) {
+            $object->isRows = false;
+            $object->numberOfRows = $source['rows'];
             $object->error = true;
-            $object->errorSummary[] = '<b>Rows</b> ' . $prod['rows'] . ' Founded ' . $migrationData['rows'] . '<b><i> Diff</i></b>:  ' . ($prod['rows'] - $migrationData['rows']) . ' rows';
+            $object->errorSummary[] = '<b>Rows</b> ' . $source['rows'] . ' Founded ' . $destination['rows'] . '<b><i> Diff</i></b>:  ' . ($source['rows'] - $destination['rows']) . ' rows';
         }
 
-        if ($prod['cols'] !== $migrationData['cols']) {
-            $object->cols = false;
+        if ($source['cols'] !== $destination['cols']) {
+            $object->isCols = false;
+            $object->numberOfCols = $source['cols'];
             $object->error = true;
-            $object->errorSummary[] = "<b>Columns </b> doesn't match founded(<b>" . $migrationData['cols'] . ")</b> out of <b>" . $prod['cols'] . "</b>";
+            $object->errorSummary[] = "<b>Columns </b> doesn't match founded(<b>" . $destination['cols'] . ")</b> out of <b>" . $source['cols'] . "</b>";
 
             $missingCol = [];
 
-            foreach ($prod['colInfo'] as $colInfo) {
+            foreach ($source['colInfo'] as $colInfo) {
                 $colName = trim($colInfo['COLUMN_NAME']); // country_code
                 $colKey = trim($colInfo['COLUMN_KEY']); // PRI, UNI, MUL, ''
                 if (empty($colKey)) {
                     $isColMatch = false;
-                    foreach ($migrationData['colInfo'] as $migColInfo) {
+                    foreach ($destination['colInfo'] as $migColInfo) {
                         $migColName = trim($migColInfo['COLUMN_NAME']);
                         if ($migColName === $colName) {
                             $isColMatch = true;
@@ -205,7 +213,7 @@ class MySQLSynchronization
             }
         }
 
-        foreach ($prod['colInfo'] as $colInfo) {
+        foreach ($source['colInfo'] as $colInfo) {
             $colName = trim($colInfo['COLUMN_NAME']); // country_code
             $colKey = trim($colInfo['COLUMN_KEY']); // PRI, UNI, MUL, ''
             $colDataType = trim($colInfo['DATA_TYPE']); // varchar, char, int, 'timestamp', '
@@ -217,7 +225,7 @@ class MySQLSynchronization
             $colExtra = trim($colInfo['EXTRA']); // DEFAULT_GENERATED,
             $colCollationName = trim($colInfo['COLLATION_NAME']); // utf8mb4_unicode_ci,
 
-            foreach ($migrationData['colInfo'] as $migColInfo) {
+            foreach ($destination['colInfo'] as $migColInfo) {
                 $migColName = trim($migColInfo['COLUMN_NAME']);
                 $migColKey = trim($migColInfo['COLUMN_KEY']); // PRI, UNI, MUL, ''
                 $migColDataType = trim($migColInfo['DATA_TYPE']); // varchar, char, int, 'timestamp', '
@@ -270,10 +278,10 @@ class MySQLSynchronization
         }
 
 
-        if ($prod['maxId'] !== $migrationData['maxId'] && ($prod['primary'] === $migrationData['primary'])) {
+        if ($source['maxId'] !== $destination['maxId'] && ($source['primary'] === $destination['primary'])) {
             $object->maxId = false;
             $object->error = true;
-            $object->errorSummary[] = "<b>MaxId</b> doesn't match columnsed: " . $prod['maxId'] . ' Founded ' . $migrationData['maxId'];
+            $object->errorSummary[] = "<b>MaxId</b> doesn't match columnsed: " . $source['maxId'] . ' Founded ' . $destination['maxId'];
         }
 
         return $object;
@@ -281,16 +289,19 @@ class MySQLSynchronization
     }
 
     public
-    static function combinedData($prodData, $migrationsData)
+    static function combinedData($sourceData, $destinationData, $sourceHost, $destinationHost)
     {
+
         $map = [];
-        foreach ($prodData as $table => $prod) {
-            if (isset($migrationsData[$table])) {
-                $migrationData = $migrationsData[$table];
-                $map[] = self::getSingular($table, $prod, $migrationData);
+        foreach ($sourceData as $table => $source) {
+            if (isset($destinationData[$table])) {
+                $traget = $destinationData[$table];
+                $map[] = self::getSingular($table, $source, $traget, $sourceHost, $destinationHost);
             } else {
                 $object = new stdClass();
                 $object->id = $table;
+                $object->sourceHost = $sourceHost;
+                $object->destinationHost = $destinationHost;
                 $object->table = $table;
                 $object->engine = true;
                 $object->engineType = '';
@@ -302,8 +313,10 @@ class MySQLSynchronization
                 $object->uniqueKeys = '';
                 $object->index = true;
                 $object->indexKeys = '';
-                $object->rows = 0;
-                $object->cols = 0;
+                $object->isCols = true;
+                $object->numberOfCols = 0;
+                $object->isRows = true;
+                $object->numberOfRows = 0;
                 $object->maxType = '';
                 $object->maxId = '';
                 $object->colInfo = '';
@@ -316,52 +329,60 @@ class MySQLSynchronization
         return (object)$map;
     }
 
-    public static function pullProcess(SyncHostDb $source, SyncHostDb $destination)
+    public static function process(SyncHostDb $source, SyncHostDb $destination)
     {
-        $sourceConfigModel = SyncConfig::findOne(['type'=>$source->type]);
-        $destinationConfigModel = SyncConfig::findOne(['type'=>$destination->type]);
+        $sourceConfigModel = SyncConfig::findOne(['type' => $source->type]);
+        $destinationConfigModel = SyncConfig::findOne(['type' => $destination->type]);
 
         $sourceConnection = DynamicConnection::createConnection($sourceConfigModel, $source->dbname);
         $destinationConnection = DynamicConnection::createConnection($destinationConfigModel, $destination->dbname);
-
         $sourceData = MySQLSynchronization::getStatics($sourceConnection, $source->dbname);
         $DestinationData = MySQLSynchronization::getStatics($destinationConnection, $destination->dbname);
-        $mappingData = MySQLSynchronization::combinedData($sourceData, $DestinationData);
+        $mappingData = MySQLSynchronization::combinedData($sourceData, $DestinationData, $sourceConnection->dsn, $destinationConnection->dsn);
+
         if ($mappingData) {
-            $tableCompare = new SyncTable();
+            $rows = [];
             foreach ($mappingData as $object) {
-                $tableCompare->sourceDb = $source->id;
-                $tableCompare->destinationDb = $source->id;
-                $tableCompare->tableName = $object->table;
-                $tableCompare->isEngine = (int)$object->engine;
-                $tableCompare->engineType = $object->engineType;
-                $tableCompare->autoIncrement = (int)$object->autoIncrement;
-                $tableCompare->autoIncrementKey = $object->autoIncrementKey;
-                $tableCompare->isPrimary = (int)$object->primary;
-                $tableCompare->primaryKeys = Json::encode($object->primaryKeys);
-                $tableCompare->isUnique = (int)$object->unique;
-                $tableCompare->uniqueKeys = Json::encode($object->uniqueKeys);
-                $tableCompare->isIndex = (int)$object->index;
-                $tableCompare->indexKeys = Json::encode($object->indexKeys);
-                $tableCompare->maxColType = (string)$object->maxId;
-                $tableCompare->maxColValue = (string)$object->maxId;
-                $tableCompare->cols = (int)$object->cols;
-                $tableCompare->rows = (int)$object->rows;
-                $tableCompare->columnStatics = Json::encode($object->colInfo);
-                $tableCompare->isError = (int)$object->error;
-                $tableCompare->errorSummary = Json::encode($object->errorSummary);
-                $tableCompare->status = SyncTable::STATUS_PULL;
-                $tableCompare->createdAt = date('Y-m-d h:i:s');
-                $tableCompare->processedAt = date('Y-m-d h:i:s');
-                if ($tableCompare->save()) {
-                    unset($tableCompare->id);
-                    $tableCompare->isNewRecord = true;
-                } else {
-                    dd($tableCompare->getErrors());
-                    die();
-                }
+                $rows[] = [
+                    null,
+                    $source->id,
+                    $destination->id,
+                    $object->table,
+                    (int)$object->engine,
+                    $object->engineType,
+                    (int)$object->autoIncrement,
+                    $object->autoIncrementKey,
+                    (int)$object->primary,
+                    Json::encode($object->primaryKeys),
+                    (int)$object->unique,
+                    Json::encode($object->uniqueKeys),
+                    (int)$object->index,
+                    Json::encode($object->indexKeys),
+                    (string)$object->maxId,
+                    (string)$object->maxId,
+                    (int)$object->isCols,
+                    (int)$object->numberOfCols,
+                    (int)$object->isRows,
+                    (int)$object->numberOfRows,
+                    Json::encode($object->colInfo),
+                    (int)$object->error,
+                    Json::encode($object->errorSummary),
+                    SyncTable::STATUS_PULL,
+                    date('Y-m-d h:i:s'),
+                    date('Y-m-d h:i:s')
+                ];
             }
+
+            Yii::$app->db->createCommand()->batchInsert(SyncTable::tableName(), [
+                'id', 'sourceDb', 'destinationDb', 'tableName', 'isEngine', 'engineType',
+                'autoIncrement', 'autoIncrementKey', 'isPrimary', 'primaryKeys',
+                'isUnique', 'uniqueKeys', 'isIndex', 'indexKeys', 'maxColType', 'maxColValue',
+                'isCols', 'numberOfCols', 'isRows', 'numberOfRows', 'columnStatics', 'isError', '
+                errorSummary', 'status', 'createdAt', 'processedAt'
+            ], $rows)->execute();
+
         }
+
     }
 
 }

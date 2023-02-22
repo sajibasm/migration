@@ -32,8 +32,10 @@ class m230221_142136_syncTable extends Migration
             'indexKeys' => $this->text()->null(),
             'maxColType' => $this->string(20),
             'maxColValue' => $this->string(50)->null(),
-            'cols' => $this->integer(20)->defaultValue(0),
-            'rows' => $this->integer(50)->defaultValue(0),
+            'isCols' => $this->smallInteger(20)->defaultValue(0),
+            'numberOfCols' => $this->integer(20)->defaultValue(0),
+            'isRows' => $this->smallInteger(20)->defaultValue(0),
+            'numberOfRows' => $this->integer(50)->defaultValue(0),
             'columnStatics' => $this->text()->null(),
             'isError' => $this->smallInteger(1)->defaultValue(0)->notNull(),
             'errorSummary' => $this->text()->null(),
@@ -41,6 +43,7 @@ class m230221_142136_syncTable extends Migration
             'createdAt' => $this->timestamp()->defaultExpression('NOW()')->notNull(),
             'processedAt' => $this->timestamp()->defaultExpression('NOW()')->notNull()
         ],  $tableOptions);
+        $this->createIndex('combinedUnique', 'sync_table', ['sourceDb', 'destinationDb', 'tableName'], true);
     }
 
     /**

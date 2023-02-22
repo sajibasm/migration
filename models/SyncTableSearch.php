@@ -17,7 +17,7 @@ class SyncTableSearch extends SyncTable
     public function rules()
     {
         return [
-            [['id', 'sourceDb', 'destinationDb', 'isEngine', 'autoIncrement', 'isPrimary', 'isUnique', 'isIndex', 'cols', 'rows', 'isError', 'status'], 'integer'],
+            [['id', 'sourceDb', 'destinationDb', 'isEngine', 'autoIncrement', 'isPrimary', 'isUnique', 'isIndex', 'isCols', 'numberOfCols', 'isRows', 'numberOfRows', 'isError', 'status'], 'integer'],
             [['tableName', 'engineType', 'autoIncrementKey', 'primaryKeys', 'uniqueKeys', 'indexKeys', 'maxColType', 'maxColValue', 'columnStatics', 'errorSummary', 'createdAt', 'processedAt'], 'safe'],
         ];
     }
@@ -66,8 +66,8 @@ class SyncTableSearch extends SyncTable
             'isPrimary' => $this->isPrimary,
             'isUnique' => $this->isUnique,
             'isIndex' => $this->isIndex,
-            'cols' => $this->cols,
-            'rows' => $this->rows,
+            'isCols' => $this->isCols,
+            'isRows' => $this->isRows,
             'isError' => $this->isError,
             'status' => $this->status,
             'createdAt' => $this->createdAt,

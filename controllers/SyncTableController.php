@@ -73,7 +73,7 @@ class SyncTableController extends Controller
 
         if ($this->request->isPost) {
             if ($model->load($this->request->post())) {
-                MySQLSynchronization::pullProcess($model->source, $model->destination);
+                MySQLSynchronization::process($model->source, $model->destination);
                 return $this->redirect(['index']);
             }
         } else {
