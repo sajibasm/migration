@@ -5,6 +5,7 @@ namespace app\controllers;
 use app\components\MySQLSynchronization;
 use app\models\SyncConfig;
 use app\models\SyncConfigSearch;
+use Yii;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\filters\VerbFilter;
@@ -69,7 +70,6 @@ class SyncConfigController extends Controller
     public function actionCreate()
     {
         $model = new SyncConfig();
-
         if ($this->request->isPost) {
             if ($model->load($this->request->post()) && $model->save()) {
                 return $this->redirect(['index']);
@@ -85,8 +85,11 @@ class SyncConfigController extends Controller
 
     public function actionSync($id)
     {
-       MySQLSynchronization::syncHostAndDB($id);
-       die();
+       if(MySQLSynchronization::syncHostAndDB($id)){
+           Yii::$app->getSession()->setFlash('success', 'DB Sync Success');
+       }
+
+       return $this->redirect(['index']);
     }
 
     /**

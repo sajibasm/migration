@@ -6,6 +6,20 @@ use yii\db\Connection;
 
 class DynamicConnection
 {
+    public static function createConnection($model, $dbname)
+    {
+        try {
+            $dsn = SyncConfig::DB_TYPE[$model->dbType].":host=".$model->host .";dbname=".$dbname;
+            $connection = new Connection(['dsn' => $dsn, 'username' => $model->username, 'password' => $model->password,]);
+            $connection->open();
+            return  $connection;
+        } catch (\yii\db\Exception $e) {
+            echo "Connection Erros: ". $e->getMessage();
+            return false;
+        }
+    }
+
+
     public static function getConnectionByModel($model)
     {
         try {

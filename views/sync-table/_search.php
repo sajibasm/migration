@@ -20,9 +20,9 @@ use yii\widgets\ActiveForm;
 
     <?= $form->field($model, 'id') ?>
 
-    <?= $form->field($model, 'host') ?>
+    <?= $form->field($model, 'sourceDb') ?>
 
-    <?= $form->field($model, 'dbName') ?>
+    <?= $form->field($model, 'destinationDb') ?>
 
     <?= $form->field($model, 'tableName') ?>
 

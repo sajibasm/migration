@@ -4,6 +4,7 @@ namespace app\components;
 
 use app\models\SyncConfig;
 use app\models\SyncHostDb;
+use app\models\SyncTable;
 use app\models\TableCompare;
 use stdClass;
 use Yii;
@@ -28,6 +29,8 @@ class MySQLSynchronization
                     $syncHostDB->isNewRecord = true;
                 }
             }
+
+            return true;
         } catch (\Exception  $e) {
             dd($e);
         }
@@ -39,21 +42,19 @@ class MySQLSynchronization
         return count($tables);
     }
 
-    public static function getStatics($db)
+    public static function getStatics($connection, $database)
     {
         $prodData = [];
-        $database = $db->createCommand("SELECT DATABASE()")->queryScalar();
-        $tableInfo = $db->createCommand("SELECT * FROM  information_schema.TABLES WHERE  TABLE_SCHEMA = '${database}';")->queryAll();
-
+        $tableInfo = $connection->createCommand("SELECT * FROM  information_schema.TABLES WHERE  TABLE_SCHEMA = '${database}';")->queryAll();
         foreach ($tableInfo as $tableIndex => $table) {
             $tableName = $table['TABLE_NAME'];
-            $signalInfo = $db->createCommand("SELECT * FROM  information_schema.COLUMNS WHERE  TABLE_SCHEMA = '${database}' AND TABLE_NAME = '${tableName}';")->queryAll();
+            $signalInfo = $connection->createCommand("SELECT * FROM  information_schema.COLUMNS WHERE  TABLE_SCHEMA = '${database}' AND TABLE_NAME = '${tableName}';")->queryAll();
             $prodData[$tableName]['engine'] = (string)$table['ENGINE'];
             $prodData[$tableName]['table'] = (string)$tableName;
             $prodData[$tableName]['autoIncrement'] = "";
             $prodData[$tableName]['maxId'] = "";
             $prodData[$tableName]['cols'] = (int)count($signalInfo);
-            $prodData[$tableName]['rows'] = (int)$db->createCommand("SELECT COUNT(*) FROM `${tableName}`;")->queryScalar();
+            $prodData[$tableName]['rows'] = (int)$connection->createCommand("SELECT COUNT(*) FROM `${tableName}`;")->queryScalar();
             $prodData[$tableName]['primary'] = [];
             $prodData[$tableName]['index'] = [];
             $prodData[$tableName]['unique'] = [];
@@ -74,7 +75,7 @@ class MySQLSynchronization
             }
         }
 
-        $tableStatistics = $db->createCommand("SELECT * FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = '${database}'; ")->queryAll();
+        $tableStatistics = $connection->createCommand("SELECT * FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = '${database}'; ")->queryAll();
         foreach ($tableStatistics as $statistic) {
             $indexName = $statistic['INDEX_NAME'];  // id, PRIMARY
             $tableName = $statistic['TABLE_NAME'];
@@ -91,15 +92,15 @@ class MySQLSynchronization
         $object = new stdClass();
         $object->id = $table;
         $object->table = $table;
-        $object->engine = false;
+        $object->engine = true;
         $object->engineType = '';
-        $object->primary = false;
+        $object->primary = true;
         $object->primaryKeys = '';
-        $object->autoIncrement = false;
+        $object->autoIncrement = true;
         $object->autoIncrementKey = '';
-        $object->unique = false;
+        $object->unique = true;
         $object->uniqueKeys = '';
-        $object->index = false;
+        $object->index = true;
         $object->indexKeys = '';
         $object->rows = 0;
         $object->cols = 0;
@@ -291,22 +292,22 @@ class MySQLSynchronization
                 $object = new stdClass();
                 $object->id = $table;
                 $object->table = $table;
-                $object->engine = false;
+                $object->engine = true;
                 $object->engineType = '';
-                $object->primary = false;
+                $object->primary = true;
                 $object->primaryKeys = '';
-                $object->autoIncrement = false;
+                $object->autoIncrement = true;
                 $object->autoIncrementKey = '';
-                $object->unique = false;
+                $object->unique = true;
                 $object->uniqueKeys = '';
-                $object->index = false;
+                $object->index = true;
                 $object->indexKeys = '';
                 $object->rows = 0;
                 $object->cols = 0;
                 $object->maxType = '';
                 $object->maxId = '';
                 $object->colInfo = '';
-                $object->error = true;
+                $object->error = false;
                 $object->errorSummary = ["<b>${table}</b> table doesn't exist."];
                 $map[] = $object;
             }
@@ -315,19 +316,22 @@ class MySQLSynchronization
         return (object)$map;
     }
 
-    public
-    static function bulkInsert()
+    public static function pullProcess(SyncHostDb $source, SyncHostDb $destination)
     {
-        $sourceDB = Yii::$app->sourceDB;
-        $destinationDB = Yii::$app->destinationDB;
+        $sourceConfigModel = SyncConfig::findOne(['type'=>$source->type]);
+        $destinationConfigModel = SyncConfig::findOne(['type'=>$destination->type]);
 
-        $prodData = MySQLSynchronization::getStatics($sourceDB);
-        $migrateData = MySQLSynchronization::getStatics($destinationDB);
-        $mappingData = MySQLSynchronization::combinedData($prodData, $migrateData);
-        //dd($mappingData); die();
+        $sourceConnection = DynamicConnection::createConnection($sourceConfigModel, $source->dbname);
+        $destinationConnection = DynamicConnection::createConnection($destinationConfigModel, $destination->dbname);
+
+        $sourceData = MySQLSynchronization::getStatics($sourceConnection, $source->dbname);
+        $DestinationData = MySQLSynchronization::getStatics($destinationConnection, $destination->dbname);
+        $mappingData = MySQLSynchronization::combinedData($sourceData, $DestinationData);
         if ($mappingData) {
-            $tableCompare = new TableCompare();
+            $tableCompare = new SyncTable();
             foreach ($mappingData as $object) {
+                $tableCompare->sourceDb = $source->id;
+                $tableCompare->destinationDb = $source->id;
                 $tableCompare->tableName = $object->table;
                 $tableCompare->isEngine = (int)$object->engine;
                 $tableCompare->engineType = $object->engineType;
@@ -346,7 +350,7 @@ class MySQLSynchronization
                 $tableCompare->columnStatics = Json::encode($object->colInfo);
                 $tableCompare->isError = (int)$object->error;
                 $tableCompare->errorSummary = Json::encode($object->errorSummary);
-                $tableCompare->status = TableCompare::STATUS_PULL;
+                $tableCompare->status = SyncTable::STATUS_PULL;
                 $tableCompare->createdAt = date('Y-m-d h:i:s');
                 $tableCompare->processedAt = date('Y-m-d h:i:s');
                 if ($tableCompare->save()) {

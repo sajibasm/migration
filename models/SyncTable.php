@@ -8,8 +8,8 @@ use Yii;
  * This is the model class for table "sync_table".
  *
  * @property int $id
- * @property int $host
- * @property string $dbName
+ * @property int $sourceDb
+ * @property int $destinationDb
  * @property string $tableName
  * @property int $isEngine
  * @property string|null $engineType
@@ -28,12 +28,26 @@ use Yii;
  * @property string|null $columnStatics
  * @property int $isError
  * @property string|null $errorSummary
- * @property int $status
+ * @property int $status 0=Pull, 1=Schema_Sync, 2=Data_Sync, 9=Processed
  * @property string $createdAt
  * @property string $processedAt
+ *
+ * @property SyncHostDb $source
+ * @property SyncHostDb $destination
  */
 class SyncTable extends \yii\db\ActiveRecord
 {
+    const STATUS_PULL  = 0;
+    const STATUS_SCHEMA_MIGRATION  = 1;
+    const STATUS_DATA_MIGRATION  = 2;
+    const STATUS_PROCESSED  = 9;
+
+    const STATUS_LABEL = [
+        self::STATUS_PULL=>'Pull',
+        self::STATUS_SCHEMA_MIGRATION=>'Schema Sync...',
+        self::STATUS_DATA_MIGRATION=>'Data Sync ...',
+        self::STATUS_PROCESSED=>'Processed',
+    ];
     /**
      * {@inheritdoc}
      */
@@ -48,11 +62,11 @@ class SyncTable extends \yii\db\ActiveRecord
     public function rules()
     {
         return [
-            [['host', 'dbName', 'tableName'], 'required'],
-            [['host', 'isEngine', 'autoIncrement', 'isPrimary', 'isUnique', 'isIndex', 'cols', 'rows', 'isError', 'status'], 'integer'],
+            [['sourceDb', 'destinationDb'], 'required'],
+            [['sourceDb', 'destinationDb', 'isEngine', 'autoIncrement', 'isPrimary', 'isUnique', 'isIndex', 'cols', 'rows', 'isError', 'status'], 'integer'],
             [['primaryKeys', 'uniqueKeys', 'indexKeys', 'columnStatics', 'errorSummary'], 'string'],
             [['createdAt', 'processedAt'], 'safe'],
-            [['dbName', 'tableName'], 'string', 'max' => 100],
+            [['tableName'], 'string', 'max' => 100],
             [['engineType'], 'string', 'max' => 10],
             [['autoIncrementKey', 'maxColType'], 'string', 'max' => 20],
             [['maxColValue'], 'string', 'max' => 50],
@@ -66,29 +80,38 @@ class SyncTable extends \yii\db\ActiveRecord
     {
         return [
             'id' => Yii::t('app', 'ID'),
-            'host' => Yii::t('app', 'Host'),
-            'dbName' => Yii::t('app', 'Db Name'),
-            'tableName' => Yii::t('app', 'Table Name'),
-            'isEngine' => Yii::t('app', 'Is Engine'),
+            'sourceDb' => Yii::t('app', 'Source'),
+            'destinationDb' => Yii::t('app', 'Destination'),
+            'tableName' => Yii::t('app', 'Table'),
+            'isEngine' => Yii::t('app', 'Engine'),
             'engineType' => Yii::t('app', 'Engine Type'),
-            'autoIncrement' => Yii::t('app', 'Auto Increment'),
-            'autoIncrementKey' => Yii::t('app', 'Auto Increment Key'),
-            'isPrimary' => Yii::t('app', 'Is Primary'),
+            'autoIncrement' => Yii::t('app', 'AI'),
+            'autoIncrementKey' => Yii::t('app', 'AI Key'),
+            'isPrimary' => Yii::t('app', 'Primary'),
             'primaryKeys' => Yii::t('app', 'Primary Keys'),
-            'isUnique' => Yii::t('app', 'Is Unique'),
+            'isUnique' => Yii::t('app', 'Unique'),
             'uniqueKeys' => Yii::t('app', 'Unique Keys'),
-            'isIndex' => Yii::t('app', 'Is Index'),
+            'isIndex' => Yii::t('app', 'Index'),
             'indexKeys' => Yii::t('app', 'Index Keys'),
-            'maxColType' => Yii::t('app', 'Max Col Type'),
-            'maxColValue' => Yii::t('app', 'Max Col Value'),
+            'maxColType' => Yii::t('app', 'MaxType'),
+            'maxColValue' => Yii::t('app', 'MaxValue'),
             'cols' => Yii::t('app', 'Cols'),
             'rows' => Yii::t('app', 'Rows'),
-            'columnStatics' => Yii::t('app', 'Column Statics'),
-            'isError' => Yii::t('app', 'Is Error'),
-            'errorSummary' => Yii::t('app', 'Error Summary'),
+            'columnStatics' => Yii::t('app', 'Statics'),
+            'isError' => Yii::t('app', 'Error'),
+            'errorSummary' => Yii::t('app', 'Summary'),
             'status' => Yii::t('app', 'Status'),
             'createdAt' => Yii::t('app', 'Created At'),
             'processedAt' => Yii::t('app', 'Processed At'),
         ];
+    }
+    public function getSource()
+    {
+        return $this->hasOne(SyncHostDb::className(), ['id' => 'sourceDb']);
+    }
+
+    public function getDestination()
+    {
+        return $this->hasOne(SyncHostDb::className(), ['id' => 'destinationDb']);
     }
 }

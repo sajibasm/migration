@@ -3,6 +3,7 @@
 namespace app\models;
 
 use Yii;
+use yii\helpers\ArrayHelper;
 
 /**
  * This is the model class for table "sync_host_db".
@@ -55,4 +56,11 @@ class SyncHostDb extends \yii\db\ActiveRecord
             'updatedAt' => Yii::t('app', 'Updated At'),
         ];
     }
+
+    public static function getHostAndDb($type=1)
+    {
+        $models = self::find()->where(['type'=>$type])->all();
+        return ArrayHelper::map($models, 'id', 'dbname');
+    }
+
 }

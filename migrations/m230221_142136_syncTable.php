@@ -17,8 +17,8 @@ class m230221_142136_syncTable extends Migration
 
         $this->createTable('sync_table', [
             'id' => $this->primaryKey(),
-            'host' => $this->integer()->notNull(),
-            'dbName' => $this->string(100)->notNull(),
+            'sourceDb' => $this->integer()->notNull(),
+            'destinationDb' => $this->integer()->notNull(),
             'tableName' => $this->string(100)->notNull(),
             'isEngine' => $this->smallInteger(1)->defaultValue(0)->notNull(),
             'engineType' => $this->string(10)->null(),

@@ -30,8 +30,8 @@ $this->params['breadcrumbs'][] = $this->title;
         'model' => $model,
         'attributes' => [
             'id',
-            'host',
-            'dbName',
+            'sourceDb',
+            'destinationDb',
             'tableName',
             'isEngine',
             'engineType',

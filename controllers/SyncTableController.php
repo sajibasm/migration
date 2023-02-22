@@ -2,6 +2,7 @@
 
 namespace app\controllers;
 
+use app\components\MySQLSynchronization;
 use app\models\SyncTable;
 use app\models\SyncTableSearch;
 use yii\web\Controller;
@@ -60,6 +61,7 @@ class SyncTableController extends Controller
         ]);
     }
 
+
     /**
      * Creates a new SyncTable model.
      * If creation is successful, the browser will be redirected to the 'view' page.
@@ -70,8 +72,9 @@ class SyncTableController extends Controller
         $model = new SyncTable();
 
         if ($this->request->isPost) {
-            if ($model->load($this->request->post()) && $model->save()) {
-                return $this->redirect(['view', 'id' => $model->id]);
+            if ($model->load($this->request->post())) {
+                MySQLSynchronization::pullProcess($model->source, $model->destination);
+                return $this->redirect(['index']);
             }
         } else {
             $model->loadDefaultValues();

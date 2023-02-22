@@ -17,8 +17,8 @@ class SyncTableSearch extends SyncTable
     public function rules()
     {
         return [
-            [['id', 'host', 'isEngine', 'autoIncrement', 'isPrimary', 'isUnique', 'isIndex', 'cols', 'rows', 'isError', 'status'], 'integer'],
-            [['dbName', 'tableName', 'engineType', 'autoIncrementKey', 'primaryKeys', 'uniqueKeys', 'indexKeys', 'maxColType', 'maxColValue', 'columnStatics', 'errorSummary', 'createdAt', 'processedAt'], 'safe'],
+            [['id', 'sourceDb', 'destinationDb', 'isEngine', 'autoIncrement', 'isPrimary', 'isUnique', 'isIndex', 'cols', 'rows', 'isError', 'status'], 'integer'],
+            [['tableName', 'engineType', 'autoIncrementKey', 'primaryKeys', 'uniqueKeys', 'indexKeys', 'maxColType', 'maxColValue', 'columnStatics', 'errorSummary', 'createdAt', 'processedAt'], 'safe'],
         ];
     }
 
@@ -59,7 +59,8 @@ class SyncTableSearch extends SyncTable
         // grid filtering conditions
         $query->andFilterWhere([
             'id' => $this->id,
-            'host' => $this->host,
+            'sourceDb' => $this->sourceDb,
+            'destinationDb' => $this->destinationDb,
             'isEngine' => $this->isEngine,
             'autoIncrement' => $this->autoIncrement,
             'isPrimary' => $this->isPrimary,
@@ -73,8 +74,7 @@ class SyncTableSearch extends SyncTable
             'processedAt' => $this->processedAt,
         ]);
 
-        $query->andFilterWhere(['like', 'dbName', $this->dbName])
-            ->andFilterWhere(['like', 'tableName', $this->tableName])
+        $query->andFilterWhere(['like', 'tableName', $this->tableName])
             ->andFilterWhere(['like', 'engineType', $this->engineType])
             ->andFilterWhere(['like', 'autoIncrementKey', $this->autoIncrementKey])
             ->andFilterWhere(['like', 'primaryKeys', $this->primaryKeys])
