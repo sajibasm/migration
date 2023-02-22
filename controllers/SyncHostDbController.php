@@ -2,17 +2,16 @@
 
 namespace app\controllers;
 
-use app\components\MySQLSynchronization;
-use app\models\TableCompare;
-use app\models\TableCompareSearch;
+use app\models\SyncHostDb;
+use app\models\SyncHostDbSearch;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\filters\VerbFilter;
 
 /**
- * TableCompareController implements the CRUD actions for TableCompare model.
+ * SyncHostDbController implements the CRUD actions for SyncHostDb model.
  */
-class TableCompareController extends Controller
+class SyncHostDbController extends Controller
 {
     /**
      * @inheritDoc
@@ -33,15 +32,14 @@ class TableCompareController extends Controller
     }
 
     /**
-     * Lists all TableCompare models.
+     * Lists all SyncHostDb models.
      *
      * @return string
      */
     public function actionIndex()
     {
-        $searchModel = new TableCompareSearch();
+        $searchModel = new SyncHostDbSearch();
         $dataProvider = $searchModel->search($this->request->queryParams);
-
         return $this->render('index', [
             'searchModel' => $searchModel,
             'dataProvider' => $dataProvider,
@@ -49,7 +47,7 @@ class TableCompareController extends Controller
     }
 
     /**
-     * Displays a single TableCompare model.
+     * Displays a single SyncHostDb model.
      * @param int $id ID
      * @return string
      * @throws NotFoundHttpException if the model cannot be found
@@ -61,15 +59,51 @@ class TableCompareController extends Controller
         ]);
     }
 
-
-    public function actionPull()
+    /**
+     * Creates a new SyncHostDb model.
+     * If creation is successful, the browser will be redirected to the 'view' page.
+     * @return string|\yii\web\Response
+     */
+    public function actionCreate()
     {
-        MySQLSynchronization::bulkInsert();
-        return $this->redirect(['index']);
+        $model = new SyncHostDb();
+
+
+        if ($this->request->isPost) {
+            if ($model->load($this->request->post()) && $model->save()) {
+                return $this->redirect(['view', 'id' => $model->id]);
+            }
+        } else {
+            $model->loadDefaultValues();
+        }
+
+        return $this->render('create', [
+            'model' => $model,
+        ]);
     }
 
     /**
-     * Deletes an existing TableCompare model.
+     * Updates an existing SyncHostDb model.
+     * If update is successful, the browser will be redirected to the 'view' page.
+     * @param int $id ID
+     * @return string|\yii\web\Response
+     * @throws NotFoundHttpException if the model cannot be found
+     */
+    public function actionUpdate($id)
+    {
+        $model = $this->findModel($id);
+
+        if ($this->request->isPost && $model->load($this->request->post()) && $model->save()) {
+            return $this->redirect(['view', 'id' => $model->id]);
+        }
+
+        return $this->render('update', [
+            'model' => $model,
+        ]);
+    }
+
+    /**
+     * Deletes an existing SyncHostDb model.
      * If deletion is successful, the browser will be redirected to the 'index' page.
      * @param int $id ID
      * @return \yii\web\Response
@@ -83,15 +117,15 @@ class TableCompareController extends Controller
     }
 
     /**
-     * Finds the TableCompare model based on its primary key value.
+     * Finds the SyncHostDb model based on its primary key value.
      * If the model is not found, a 404 HTTP exception will be thrown.
      * @param int $id ID
-     * @return TableCompare the loaded model
+     * @return SyncHostDb the loaded model
      * @throws NotFoundHttpException if the model cannot be found
      */
     protected function findModel($id)
     {
-        if (($model = TableCompare::findOne(['id' => $id])) !== null) {
+        if (($model = SyncHostDb::findOne(['id' => $id])) !== null) {
             return $model;
         }
 

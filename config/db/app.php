@@ -2,7 +2,7 @@
 
 return [
     'class' => 'yii\db\Connection',
-    'dsn' => 'mysql:host=localhost;dbname=migration',
+    'dsn' => 'mysql:host=localhost;dbname=synchronization',
     'username' => 'root',
     'password' => 'root',
     'charset' => 'utf8',

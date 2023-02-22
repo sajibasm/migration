@@ -2,13 +2,36 @@
 
 namespace app\components;
 
+use app\models\SyncConfig;
+use app\models\SyncHostDb;
 use app\models\TableCompare;
 use stdClass;
 use Yii;
 use yii\helpers\Json;
 
-class MySqlMigrationQuery
+class MySQLSynchronization
 {
+    public static function syncHostAndDB($id)
+    {
+
+        try {
+            $model = SyncConfig::findOne(['id' => $id]);
+            $db = DynamicConnection::getConnectionByModel($model);
+            $database = $db->createCommand("SHOW DATABASES;")->queryAll();
+            $syncHostDB = new SyncHostDb();
+            foreach ($database as $name){
+                $syncHostDB->host = $model->host;
+                $syncHostDB->dbname = $name['Database'];
+                $syncHostDB->type = $model->type;
+                if($syncHostDB->save()){
+                    unset($syncHostDB->id);
+                    $syncHostDB->isNewRecord = true;
+                }
+            }
+        } catch (\Exception  $e) {
+            dd($e);
+        }
+    }
 
     public static function getTotalCount($db)
     {
@@ -295,9 +318,12 @@ class MySqlMigrationQuery
     public
     static function bulkInsert()
     {
-        $prodData = MySqlMigrationQuery::getStatics(Yii::$app->prodDb);
-        $migrateData = MySqlMigrationQuery::getStatics(Yii::$app->migrateDb);
-        $mappingData = MySqlMigrationQuery::combinedData($prodData, $migrateData);
+        $sourceDB = Yii::$app->sourceDB;
+        $destinationDB = Yii::$app->destinationDB;
+
+        $prodData = MySQLSynchronization::getStatics($sourceDB);
+        $migrateData = MySQLSynchronization::getStatics($destinationDB);
+        $mappingData = MySQLSynchronization::combinedData($prodData, $migrateData);
         //dd($mappingData); die();
         if ($mappingData) {
             $tableCompare = new TableCompare();

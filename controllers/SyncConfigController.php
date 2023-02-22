@@ -3,16 +3,16 @@
 namespace app\controllers;
 
 use app\components\MySQLSynchronization;
-use app\models\TableCompare;
-use app\models\TableCompareSearch;
+use app\models\SyncConfig;
+use app\models\SyncConfigSearch;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\filters\VerbFilter;
 
 /**
- * TableCompareController implements the CRUD actions for TableCompare model.
+ * SyncConfigController implements the CRUD actions for SyncConfig model.
  */
-class TableCompareController extends Controller
+class SyncConfigController extends Controller
 {
     /**
      * @inheritDoc
@@ -33,13 +33,13 @@ class TableCompareController extends Controller
     }
 
     /**
-     * Lists all TableCompare models.
+     * Lists all SyncConfig models.
      *
      * @return string
      */
     public function actionIndex()
     {
-        $searchModel = new TableCompareSearch();
+        $searchModel = new SyncConfigSearch();
         $dataProvider = $searchModel->search($this->request->queryParams);
 
         return $this->render('index', [
@@ -49,7 +49,7 @@ class TableCompareController extends Controller
     }
 
     /**
-     * Displays a single TableCompare model.
+     * Displays a single SyncConfig model.
      * @param int $id ID
      * @return string
      * @throws NotFoundHttpException if the model cannot be found
@@ -61,15 +61,56 @@ class TableCompareController extends Controller
         ]);
     }
 
-
-    public function actionPull()
+    /**
+     * Creates a new SyncConfig model.
+     * If creation is successful, the browser will be redirected to the 'view' page.
+     * @return string|\yii\web\Response
+     */
+    public function actionCreate()
     {
-        MySQLSynchronization::bulkInsert();
-        return $this->redirect(['index']);
+        $model = new SyncConfig();
+
+        if ($this->request->isPost) {
+            if ($model->load($this->request->post()) && $model->save()) {
+                return $this->redirect(['index']);
+            }
+        } else {
+            $model->loadDefaultValues();
+        }
+
+        return $this->render('create', [
+            'model' => $model,
+        ]);
+    }
+
+    public function actionSync($id)
+    {
+       MySQLSynchronization::syncHostAndDB($id);
+       die();
     }
 
     /**
-     * Deletes an existing TableCompare model.
+     * Updates an existing SyncConfig model.
+     * If update is successful, the browser will be redirected to the 'view' page.
+     * @param int $id ID
+     * @return string|\yii\web\Response
+     * @throws NotFoundHttpException if the model cannot be found
+     */
+    public function actionUpdate($id)
+    {
+        $model = $this->findModel($id);
+
+        if ($this->request->isPost && $model->load($this->request->post()) && $model->save()) {
+            return $this->redirect(['view', 'id' => $model->id]);
+        }
+
+        return $this->render('update', [
+            'model' => $model,
+        ]);
+    }
+
+    /**
+     * Deletes an existing SyncConfig model.
      * If deletion is successful, the browser will be redirected to the 'index' page.
      * @param int $id ID
      * @return \yii\web\Response
@@ -83,15 +124,15 @@ class TableCompareController extends Controller
     }
 
     /**
-     * Finds the TableCompare model based on its primary key value.
+     * Finds the SyncConfig model based on its primary key value.
      * If the model is not found, a 404 HTTP exception will be thrown.
      * @param int $id ID
-     * @return TableCompare the loaded model
+     * @return SyncConfig the loaded model
      * @throws NotFoundHttpException if the model cannot be found
      */
     protected function findModel($id)
     {
-        if (($model = TableCompare::findOne(['id' => $id])) !== null) {
+        if (($model = SyncConfig::findOne(['id' => $id])) !== null) {
             return $model;
         }
 

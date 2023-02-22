@@ -1,9 +1,9 @@
 <?php
 
 $params = require __DIR__ . '/params.php';
-$db = require __DIR__ . '/db.php';
-$db1 = require __DIR__ . '/db1.php';
-$db2 = require __DIR__ . '/db2.php';
+$db = require __DIR__ . '/db/app.php';
+$source = require __DIR__ . '/db/source.php';
+$destination = require __DIR__ . '/db/destination.php';
 
 $config = [
     'id' => 'basic',
@@ -44,9 +44,8 @@ $config = [
             ],
         ],
         'db' => $db,
-        'prodDb' => $db1,
-        'migrateDb' => $db2,
-
+        'sourceDB' => $source,
+        'destinationDB' => $destination,
         'urlManager' => [
             'enablePrettyUrl' => true,
             'showScriptName' => false,
