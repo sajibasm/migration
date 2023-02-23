@@ -377,8 +377,7 @@ class MySQLSynchronization
                 'id', 'sourceDb', 'destinationDb', 'tableName', 'isEngine', 'engineType',
                 'autoIncrement', 'autoIncrementKey', 'isPrimary', 'primaryKeys',
                 'isUnique', 'uniqueKeys', 'isIndex', 'indexKeys', 'maxColType', 'maxColValue',
-                'isCols', 'numberOfCols', 'isRows', 'numberOfRows', 'columnStatics', 'isError', '
-                errorSummary', 'status', 'createdAt', 'processedAt'
+                'isCols', 'numberOfCols', 'isRows', 'numberOfRows', 'columnStatics', 'isError', 'errorSummary', 'status', 'createdAt', 'processedAt'
             ], $rows)->execute();
 
         }

@@ -48,7 +48,7 @@ FontAwesomeAsset::register($this);
                             'panel' => [
                                 'after' => '<div class="float-right float-end"><button type="button" class="btn btn-primary" onclick="var keys = $("#kv-grid-demo").yiiGridView("getSelectedRows").length; alert(keys > 0 ? "Downloaded " + keys + " selected books to your account." : "No rows selected for download.");"><i class="fas fa-download"></i> Download Selected</button></div><div style="padding-top: 5px;"><em>* The page summary displays SUM for first 3 amount columns and AVG for the last.</em></div><div class="clearfix"></div>',
                                 'heading' => '<i class="fas fa-book"></i>  Library',
-                                'type' => 'primary',
+                                'type' => GridView::TYPE_LIGHT,
                                 'before' => '<div style="padding-top: 7px;"><em>* Resize table columns just like a spreadsheet by dragging the column edges.</em></div>',
                             ],
                             // set export properties

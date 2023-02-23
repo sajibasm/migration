@@ -4,95 +4,84 @@ use app\components\Constants;
 use app\models\CompanyAccount;
 use app\models\SyncTable;
 use app\modules\AccessControl\components\Access;
+use kartik\grid\GridView;
 use kartik\icons\Icon;
 use yii\helpers\Html;
 use yii\helpers\Url;
 
 return [
     ['class' => 'kartik\grid\SerialColumn'],
-
     [
-        'attribute'=>'source.host',
-        'header'=>'Source DB',
-        'value'=>function($model){
-            return $model->source->dbname.'('.$model->source->host.')';
+        'class' => 'kartik\grid\ExpandRowColumn',
+        'width' => '50px',
+        'value' => function ($model, $key, $index, $column) {
+            return GridView::ROW_COLLAPSED;
+        },
+        // uncomment below and comment detail if you need to render via ajax
+        // 'detailUrl' => Url::to(['/site/book-details']),
+        'detail' => function ($model, $key, $index, $column) {
+            return Yii::$app->controller->renderPartial('_expand-row-details', ['model' => $model]);
+        },
+        'headerOptions' => ['class' => 'kartik-sheet-style'],
+        'expandOneOnly' => true
+    ],
+    [
+        'attribute' => 'source.host',
+        'header' => 'Source DB',
+        'value' => function ($model) {
+            return $model->source->dbname . '(' . $model->source->host . ')';
         }
     ],
     [
-        'attribute'=>'destination.host',
-        'header'=>'Destination DB',
-        'value'=>function($model){
-            return $model->destination->dbname.'('.$model->destination->host.')';
+        'attribute' => 'destination.host',
+        'header' => 'Destination DB',
+        'value' => function ($model) {
+            return $model->destination->dbname . '(' . $model->destination->host . ')';
         }
     ],
     'tableName',
     [
+        'class' => 'kartik\grid\BooleanColumn',
+        'vAlign' => 'middle',
         'attribute' => 'isEngine',
-        'format' => 'html',
-        'contentOptions' => ['class' => 'text-center', 'style' => 'width: 5px;'],
-        'value' => function ($model) {
-            //dd($model->isEngine);die();
-            return $model->isEngine ? Icon::show('check') : Icon::show('close',  ['style'=>'color: red;']);
-        }
     ],
     [
+        'class' => 'kartik\grid\BooleanColumn',
+        'vAlign' => 'middle',
         'attribute' => 'autoIncrement',
-        'format' => 'html',
-        'contentOptions' => ['class' => 'text-center', 'style' => 'width: 5px;'],
-        'value' => function ($model) {
-            return $model->autoIncrement ? Icon::show('check') : Icon::show('close',  ['style'=>'color: red;']);
-        }
     ],
     [
+        'class' => 'kartik\grid\BooleanColumn',
+        'vAlign' => 'middle',
         'attribute' => 'isPrimary',
-        'format' => 'html',
-        'contentOptions' => ['class' => 'text-center', 'style' => 'width: 5px;'],
-        'value' => function ($model) {
-            return $model->isPrimary ? Icon::show('check') : Icon::show('close',  ['style'=>'color: red;']);
-        }
     ],
     [
+        'class' => 'kartik\grid\BooleanColumn',
+        'vAlign' => 'middle',
         'attribute' => 'isUnique',
-        'format' => 'html',
-        'contentOptions' => ['class' => 'text-center', 'style' => 'width: 5px;'],
-        'value' => function ($model) {
-            return $model->isUnique ? Icon::show('check') : Icon::show('close',  ['style'=>'color: red;']);
-        }
     ],
     [
+        'class' => 'kartik\grid\BooleanColumn',
+        'vAlign' => 'middle',
         'attribute' => 'isIndex',
-        'format' => 'html',
-        'contentOptions' => ['class' => 'text-center', 'style' => 'width: 5px;'],
-        'value' => function ($model) {
-            return $model->isIndex ? Icon::show('check') : Icon::show('close',  ['style'=>'color: red;']);
-        }
     ],
     'maxColType',
     'maxColValue',
     [
+        'class' => 'kartik\grid\BooleanColumn',
+        'vAlign' => 'middle',
         'attribute' => 'isCols',
-        'format' => 'html',
-        'contentOptions' => ['class' => 'text-center', 'style' => 'width: 5px;'],
-        'value' => function ($model) {
-            return !$model->cols ? Icon::show('check') : Icon::show('close',  ['style'=>'color: red;']);
-        }
     ],
-
     [
+        'class' => 'kartik\grid\BooleanColumn',
+        'vAlign' => 'middle',
         'attribute' => 'isRows',
-        'format' => 'html',
-        'contentOptions' => ['class' => 'text-center', 'style' => 'width: 5px;'],
-        'value' => function ($model) {
-            return !$model->rows ? Icon::show('check') : Icon::show('close',  ['style'=>'color: red;']);
-        }
+
     ],
     [
+        'class' => 'kartik\grid\BooleanColumn',
+        'vAlign' => 'middle',
         'attribute' => 'isError',
-        'format' => 'html',
-        'contentOptions' => ['class' => 'text-center', 'style' => 'width: 5px;'],
-        'value' => function ($model) {
-            return !$model->isError ? Icon::show('check') : Icon::show('close',  ['style'=>'color: red;']);
-        }
     ],
     [
         'attribute' => 'status',
@@ -104,25 +93,23 @@ return [
     'createdAt',
     [
         'class' => 'kartik\grid\ActionColumn',
-        'template' => ' {view} {update} {approve}',
+        'template' => ' {view} {update} {sync}',
         'options' => ['style' => 'width: 130px;'],
         'hAlign' => 'center',
         'header' => 'Action',
-        'urlCreator' => function ($action, $model, $key, $index) {
-            return Url::to(['view', 'id' => $model->id]);
-        },
+//        'urlCreator' => function ($action, $model, $key, $index) {
+//            return Url::to(['view', 'id' => $model->id]);
+//        },
         'buttons' => [
-//            'approve' => function ($url, $model) {
-//                if ($model->status === Constants::STATUS_PENDING && Access::hasAction('approve')) {
-//                    return Html::a('<span class="dripicons-checkmark"></span>', Url::to(['view', 'id' => $model->uuid, 'type' => Constants::MODAL_STATUS_APPROVE]), [
-//                        'class' => 'btn btn-soft-info btn-sm waves-effect waves-light approveModal',
-//                        'data-pjax' => 0,
-//                        'data-bs-toggle'=>"tooltip",
-//                        'data-bs-placement'=>"top",
-//                        'data-bs-original-title'=>"Approve",
-//                    ]);
-//                }
-//            },
+            'sync' => function ($url, $model) {
+                return Html::a(Icon::show('cloud'), Url::to(['view', 'id' => $model->id]), [
+                    'class' => 'btn btn-soft-info btn-sm waves-effect waves-light approveModal',
+                    'data-pjax' => 0,
+                    'data-bs-toggle' => "tooltip",
+                    'data-bs-placement' => "top",
+                    'data-bs-original-title' => "Approve",
+                ]);
+            },
 //            'view' => function ($url, $model) {
 //                if (Access::hasAction('view')) {
 //                    return Html::a('<span class="bx bx-show"></span>', Url::to(['view', 'id' => $model->uuid]), [
