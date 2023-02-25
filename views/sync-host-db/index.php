@@ -60,11 +60,6 @@ Icon::map($this);
             'toolbar' => [
                 [
                     'content' =>
-                        Html::a(\kartik\icons\Icon::show('plus'), ['create'], [
-                            'class' => 'btn btn-success',
-                            'title' => Yii::t('app', 'Reset Grid'),
-                            'data-pjax' => 0,
-                        ]) . ' ' .
                         Html::a('<i class="fas fa-redo"></i>', ['index'], [
                             'class' => 'btn btn-outline-secondary',
                             'title' => Yii::t('app', 'Reset Grid'),

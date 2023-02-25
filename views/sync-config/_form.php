@@ -1,8 +1,8 @@
 <?php
 
 use app\models\SyncConfig;
+use yii\bootstrap5\ActiveForm;
 use yii\helpers\Html;
-use yii\widgets\ActiveForm;
 
 /** @var yii\web\View $this */
 /** @var app\models\SyncConfig $model */
