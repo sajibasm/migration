@@ -40,11 +40,9 @@ $this->registerLinkTag(['rel' => 'icon', 'type' => 'image/x-icon', 'href' => Yii
         'options' => ['class' => 'navbar-nav'],
         'items' => [
             ['label' => 'Home', 'url' => ['/site/index']],
-            ['label' => 'Host & DB', 'url' => ['/sync-host-db/']],
+            ['label' => 'Host DB', 'url' => ['/sync-host-db/']],
             ['label' => 'Tables', 'url' => ['/sync-table/']],
             ['label' => 'Config', 'url' => ['/sync-config/']],
-            ['label' => 'About', 'url' => ['/site/about']],
-            ['label' => 'Contact', 'url' => ['/site/contact']],
             Yii::$app->user->isGuest
                 ? ['label' => 'Login', 'url' => ['/site/login']]
                 : '<li class="nav-item">'

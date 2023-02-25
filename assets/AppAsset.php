@@ -19,10 +19,21 @@ class AppAsset extends AssetBundle
 {
     public $basePath = '@webroot';
     public $baseUrl = '@web';
+    public $publishOptions = [
+        'forceCopy' => true
+    ];
+
+    /**
+     * @inheritdoc
+     */
+    public function init() {
+        parent::init();
+    }
     public $css = [
         'css/site.css',
     ];
     public $js = [
+        'js/bootbox.all.min.js',
     ];
     public $depends = [
         'yii\web\YiiAsset',

@@ -85,11 +85,21 @@ class SyncConfigController extends Controller
 
     public function actionSync($id)
     {
-       if(MySQLSynchronization::syncHostAndDB($id)){
-           Yii::$app->getSession()->setFlash('success', 'DB Sync Success');
-       }
-
-       return $this->redirect(['index']);
+        if (Yii::$app->request->isAjax) {
+            \Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+            try {
+                $nunberOfRecordSaved = MySQLSynchronization::syncHostAndDB($id);
+                if ($nunberOfRecordSaved) {
+                    return ['success'=>true, 'records'=>$nunberOfRecordSaved];
+                } else {
+                    return ['success'=>true, 'records'=>0];
+                }
+            }catch (\Exception $e) {
+                //dd($e->getMessage());
+                return ['success'=>false, 'records'=>0];
+            }
+        }
+        return $this->redirect(['index']);
     }
 
     /**
@@ -104,7 +114,8 @@ class SyncConfigController extends Controller
         $model = $this->findModel($id);
 
         if ($this->request->isPost && $model->load($this->request->post()) && $model->save()) {
-            return $this->redirect(['view', 'id' => $model->id]);
+            Yii::$app->getSession()->setFlash('success', 'DB Config Successfully Updated');
+            return $this->redirect(['index']);
         }
 
         return $this->render('update', [

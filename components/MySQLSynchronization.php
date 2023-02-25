@@ -8,6 +8,7 @@ use app\models\SyncTable;
 use app\models\TableCompare;
 use stdClass;
 use Yii;
+use yii\data\Pagination;
 use yii\helpers\Json;
 
 class MySQLSynchronization
@@ -16,6 +17,7 @@ class MySQLSynchronization
     {
 
         try {
+            $newRecords = 0;
             $model = SyncConfig::findOne(['id' => $id]);
             $db = DynamicConnection::getConnectionByModel($model);
             $database = $db->createCommand("SHOW DATABASES;")->queryAll();
@@ -24,13 +26,14 @@ class MySQLSynchronization
                 $syncHostDB->host = $model->host;
                 $syncHostDB->dbname = $name['Database'];
                 $syncHostDB->type = $model->type;
-                if ($syncHostDB->save()) {
+                if($syncHostDB->save()){
                     unset($syncHostDB->id);
                     $syncHostDB->isNewRecord = true;
+                    $newRecords++;
                 }
             }
 
-            return true;
+            return $newRecords?:false;
         } catch (\Exception  $e) {
             dd($e);
         }

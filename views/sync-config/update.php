@@ -5,7 +5,7 @@ use yii\helpers\Html;
 /** @var yii\web\View $this */
 /** @var app\models\SyncConfig $model */
 
-$this->title = Yii::t('app', 'Update Sync Config: {name}', [
+$this->title = Yii::t('app', 'Update Config: {name}', [
     'name' => $model->id,
 ]);
 $this->params['breadcrumbs'][] = ['label' => Yii::t('app', 'Sync Configs'), 'url' => ['index']];

@@ -95,4 +95,5 @@ FontAwesomeAsset::register($this);
             </div>
         </div>
     </div>
+
 </div>
