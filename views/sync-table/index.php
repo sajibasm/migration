@@ -42,7 +42,7 @@ FontAwesomeAsset::register($this);
             'showPageSummary' => false,
             'panel' => [
                 //'after' => '<div class="float-right float-end"><button type="button" class="btn btn-primary" onclick="var keys = $("#kv-grid-demo").yiiGridView("getSelectedRows").length; alert(keys > 0 ? "Downloaded " + keys + " selected books to your account." : "No rows selected for download.");"><i class="fas fa-download"></i> Download Selected</button></div><div style="padding-top: 5px;"><em>* The page summary displays SUM for first 3 amount columns and AVG for the last.</em></div><div class="clearfix"></div>',
-                'heading' => '<i class="fas table"></i>',
+                'heading' => Icon::show('retweet'),
                 'type' => GridView::TYPE_ACTIVE,
                 //'before' => '<div style="padding-top: 7px;"><em>* Resize table columns just like a spreadsheet by dragging the column edges.</em></div>',
             ],
@@ -60,6 +60,20 @@ FontAwesomeAsset::register($this);
 //                            ],
             // set your toolbar
             'toolbar' => [
+                [
+                    'content' =>
+                        Html::a(\kartik\icons\Icon::show('plus'), ['create'], [
+                            'class' => 'btn btn-success',
+                            'title' => Yii::t('app', 'Reset Grid'),
+                            'data-pjax' => 0,
+                        ]) . ' ' .
+                        Html::a('<i class="fas fa-redo"></i>', ['index'], [
+                            'class' => 'btn btn-outline-secondary',
+                            'title' => Yii::t('app', 'Reset Grid'),
+                            'data-pjax' => 0,
+                        ]),
+                    'options' => ['class' => 'btn-group mr-2 me-2']
+                ],
                 '{export}',
                 '{toggleData}',
             ],
