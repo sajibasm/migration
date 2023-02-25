@@ -29,14 +29,14 @@ return [
         'attribute' => 'source.host',
         'header' => 'Source DB',
         'value' => function ($model) {
-            return $model->source->dbname . '(' . $model->source->host . ')';
+            return $model->source->dbname;
         }
     ],
     [
         'attribute' => 'destination.host',
         'header' => 'Destination DB',
         'value' => function ($model) {
-            return $model->destination->dbname . '(' . $model->destination->host . ')';
+            return $model->destination->dbname;
         }
     ],
     'tableName',

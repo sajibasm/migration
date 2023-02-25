@@ -13,25 +13,48 @@ use yii\widgets\ActiveForm;
 
     <?php $form = ActiveForm::begin(); ?>
 
-    <?= $form->field($model, 'dbType')->dropDownList(SyncConfig::DB_TYPE) ?>
+    <div class="row">
+        <div class="col-md-6">
+            <?= $form->field($model, 'dbType')->dropDownList(SyncConfig::DB_TYPE) ?>
+        </div>
+        <div class="col-md-6">
+            <?= $form->field($model, 'type')->dropDownList(SyncConfig::TYPE) ?>
+        </div>
+    </div>
 
-    <?= $form->field($model, 'type')->dropDownList(SyncConfig::TYPE) ?>
+    <div class="row">
+        <div class="col-md-6">
+            <?= $form->field($model, 'host')->textInput(['maxlength' => true]) ?>
+        </div>
+        <div class="col-md-6">
+            <?= $form->field($model, 'dbname')->textInput(['maxlength' => true]) ?>
+        </div>
+    </div>
 
-    <?= $form->field($model, 'host')->textInput(['maxlength' => true]) ?>
+    <div class="row">
+        <div class="col-md-6">
+            <?= $form->field($model, 'username')->textInput(['maxlength' => true]) ?>
+        </div>
+        <div class="col-md-6">
+            <?= $form->field($model, 'password')->passwordInput(['maxlength' => true]) ?>
+        </div>
+    </div>
 
-    <?= $form->field($model, 'dbname')->textInput(['maxlength' => true]) ?>
+    <div class="row">
+        <div class="col-md-6">
+            <?= $form->field($model, 'charset')->textInput(['maxlength' => true]) ?>
+        </div>
+        <div class="col-md-6">
+            <?= $form->field($model, 'status')->dropDownList(SyncConfig::STATUS) ?>
+        </div>
+    </div>
 
-    <?= $form->field($model, 'username')->textInput(['maxlength' => true]) ?>
-
-    <?= $form->field($model, 'password')->passwordInput(['maxlength' => true]) ?>
-
-    <?= $form->field($model, 'charset')->textInput(['maxlength' => true]) ?>
-
-    <?= $form->field($model, 'status')->dropDownList(SyncConfig::STATUS) ?>
-
-
-    <div class="form-group">
-        <?= Html::submitButton(Yii::t('app', 'Save'), ['class' => 'btn btn-success']) ?>
+    <div class="row">
+        <div class="col-md-12">
+            <div class="form-group">
+                <?= Html::submitButton(Yii::t('app', 'Save'), ['class' => 'btn btn-success']) ?>
+            </div>
+        </div>
     </div>
 
     <?php ActiveForm::end(); ?>

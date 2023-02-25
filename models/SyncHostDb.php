@@ -51,8 +51,8 @@ class SyncHostDb extends \yii\db\ActiveRecord
         return [
             'id' => Yii::t('app', 'ID'),
             'host' => Yii::t('app', 'Host'),
-            'dbname' => Yii::t('app', 'Dbname'),
-            'createdAt' => Yii::t('app', 'Created At'),
+            'dbname' => Yii::t('app', 'Database'),
+            'createdAt' => Yii::t('app', 'CreatedAt'),
             'updatedAt' => Yii::t('app', 'Updated At'),
         ];
     }
