@@ -30,6 +30,7 @@ class m230221_142136_syncTable extends Migration
             'uniqueKeys' => $this->text()->null(),
             'isIndex' => $this->smallInteger(1)->defaultValue(0)->notNull(),
             'indexKeys' => $this->text()->null(),
+            'isMax' => $this->smallInteger(1)->defaultValue(0)->notNull(),
             'maxColType' => $this->string(20),
             'maxColValue' => $this->string(50)->null(),
             'isCols' => $this->smallInteger(20)->defaultValue(0),
