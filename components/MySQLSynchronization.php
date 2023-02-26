@@ -7,6 +7,8 @@ use app\models\SyncHostDb;
 use app\models\SyncTable;
 use stdClass;
 use Yii;
+use yii\helpers\ArrayHelper;
+use yii\helpers\Console;
 use yii\helpers\Json;
 
 class MySQLSynchronization
@@ -24,14 +26,14 @@ class MySQLSynchronization
                 $syncHostDB->host = $model->host;
                 $syncHostDB->dbname = $name['Database'];
                 $syncHostDB->type = $model->type;
-                if($syncHostDB->save()){
+                if ($syncHostDB->save()) {
                     unset($syncHostDB->id);
                     $syncHostDB->isNewRecord = true;
                     $newRecords++;
                 }
             }
 
-            return $newRecords?:false;
+            return $newRecords ?: false;
         } catch (\Exception  $e) {
             dd($e);
         }
@@ -45,165 +47,273 @@ class MySQLSynchronization
 
     public static function getStatics($connection, $database)
     {
-        $data = [];
-        $tableInfo = $connection->createCommand("SELECT * FROM  information_schema.TABLES WHERE  TABLE_SCHEMA = '${database}';")->queryAll();
-        foreach ($tableInfo as $tableIndex => $table) {
+        $statData = [];
+        $tableInfos = $connection->createCommand("SELECT * FROM  information_schema.TABLES WHERE  TABLE_SCHEMA = '${database}';")->queryAll();
+        $columnConstraints = $connection->createCommand("SELECT * FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS WHERE TABLE_SCHEMA = '${database}';  ")->queryAll();
+        $foreignKeyInfo = $connection->createCommand("SELECT CONCAT(table_name, '.', column_name) AS 'foreign_key', CONCAT(referenced_table_name, '.', referenced_column_name) AS 'references', constraint_name AS 'constraint_name' FROM information_schema.key_column_usage WHERE referenced_table_name IS NOT NULL AND table_schema = '${database}';")->queryAll();
+        $indexKeyInfo = $connection->createCommand("SELECT DISTINCT TABLE_NAME, INDEX_NAME, COLUMN_NAME FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = '${database}';")->queryAll();
+
+        foreach ($tableInfos as $tableIndex => $tableInfo) {
+
+            $tableName = $tableInfo['TABLE_NAME'];
+            $colsInfo = $connection->createCommand("SELECT * FROM  information_schema.COLUMNS WHERE  TABLE_SCHEMA = '${database}' AND TABLE_NAME = '${tableName}';")->queryAll();
+            $statData[$tableName]['host'] = (string)$connection->dsn;
+            $statData[$tableName]['database'] = (string)$database;
+            $statData[$tableName]['engine'] = strlen($tableInfo['ENGINE']) ? true : false;
+            $statData[$tableName]['engineType'] = (string)$tableInfo['ENGINE'];
+            $statData[$tableName]['table'] = (string)$tableName;
+            $statData[$tableName]['autoIncrement'] = false;
+            $statData[$tableName]['primary'] = false;
+            $statData[$tableName]['foreign'] = false;
+            $statData[$tableName]['unique'] = false;
+            $statData[$tableName]['index'] = false;
 
 
-            $tableName = $table['TABLE_NAME'];
-            $signalInfo = $connection->createCommand("SELECT * FROM  information_schema.COLUMNS WHERE  TABLE_SCHEMA = '${database}' AND TABLE_NAME = '${tableName}';")->queryAll();
-            $data[$tableName]['host'] = (string)$connection->dsn;
-            $data[$tableName]['database'] = (string)$database;
-            $data[$tableName]['engine'] = (string)$table['ENGINE'];
-            $data[$tableName]['table'] = (string)$tableName;
-            $data[$tableName]['autoIncrement'] = "";
-            $data[$tableName]['maxId'] = "";
-            $data[$tableName]['cols'] = (int)count($signalInfo);
-            $data[$tableName]['rows'] = (int)$connection->createCommand("SELECT COUNT(*) FROM `${tableName}`;")->queryScalar();
-            $data[$tableName]['primary'] = [];
-            $data[$tableName]['index'] = [];
-            $data[$tableName]['unique'] = [];
-            $data[$tableName]['colInfo'] = $signalInfo;
+            $indexCols = [];
+            $uniqueCols = [];
+            $primaryCols = [];
+            $foreignCols = [];
+            $constraintsCols = [];
+            $autoIncrementCols = [];
 
-            foreach ($signalInfo as $info) {
-                $colName = $info['COLUMN_NAME']; //id, uid, username
-                $colKey = $info['COLUMN_KEY']; // PRI, UNI, MUL
-                $colExtra = $info['EXTRA']; // auto_increment , null
-                if ($colKey === 'PRI') {
-                    $data[$tableName]['primary'][] = $colName;
-                }
-                if ($colKey === 'UNI') {
-                    $data[$tableName]['unique'][] = $colName;
-                }
-                if ($colExtra === 'auto_increment') {
-                    $data[$tableName]['autoIncrement'] = $colName;
+            foreach ($indexKeyInfo as $index) {
+                if ($index['TABLE_NAME'] === $tableName) {
+                    $indexCols[] = $index;
+                    $statData[$tableName]['index'] = true;
                 }
             }
-        }
 
-        $tableStatistics = $connection->createCommand("SELECT * FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = '${database}'; ")->queryAll();
-        $tableStatistics = $connection->createCommand("SELECT TABLE_NAME, COLUMN_NAME, CONSTRAINT_NAME, REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE WHERE REFERENCED_TABLE_SCHEMA = 'yii2' AND REFERENCED_TABLE_NAME = 'user'; ")->queryAll();
-
-        if($table['TABLE_NAME']=='user'){
-            dd($tableStatistics);
-            die();
-        }
-
-        foreach ($tableStatistics as $statistic) {
-            $indexName = $statistic['INDEX_NAME'];  // id, PRIMARY
-            $tableName = $statistic['TABLE_NAME'];
-            $colName = $statistic['COLUMN_NAME'];
-            if ($indexName !== 'PRIMARY') {
-                $data[$tableName]['index'][] = $colName;
+            foreach ($columnConstraints as $const) {
+                if ($const['TABLE_NAME'] === $tableName) {
+                    $constraintsCols[] = $const;
+                    if ($const['CONSTRAINT_TYPE'] === 'UNIQUE') {
+                        $statData[$tableName]['unique'] = true;
+                    }
+                    if ($const['CONSTRAINT_TYPE'] === 'PRIMARY KEY') {
+                        $statData[$tableName]['primary'] = true;
+                    }
+                    $statData[$tableName]['index'] = true;
+                }
             }
+
+            foreach ($foreignKeyInfo as $foreign) {
+                $explode = explode(".", $foreign['foreign_key']);
+                if ($explode && $explode[0] === $tableName) {
+                    $foreignCols[] = $foreign;
+                    $statData[$tableName]['foreign'] = true;
+                }
+                $statData[$tableName]['index'] = true;
+            }
+
+            foreach ($colsInfo as $info) {
+                $table = $info['TABLE_NAME'];
+                $colKey = $info['COLUMN_KEY']; //PRI
+                $extra = $info['EXTRA']; //auto_increment
+                if ($tableName === $table) {
+                    if ($extra === 'auto_increment') {
+                        $statData[$tableName]['autoIncrement'] = true;
+                        $autoIncrementCols = $info;
+                    }
+                    if ($colKey === 'PRI') {
+                        $primaryCols[] = $info;
+                    }
+                    if ($colKey === 'UNI') {
+                        $uniqueCols[] = $info;
+                    }
+                }
+            }
+
+            $statData[$tableName]['extra'] = [
+                'table' => [
+                    'info' => $tableInfo
+                ],
+                'column' => [
+                    'total' => count($colsInfo),
+                    'autoIncrement' => $autoIncrementCols,
+                    'primary' => $primaryCols,
+                    'foreign' => $foreignCols,
+                    'unique' => $uniqueCols,
+                    'index' => $indexCols,
+                    'constraints' => $constraintsCols,
+                    'info' => $colsInfo,
+                ],
+                'row' => [
+                    'total' => (int)$connection->createCommand("SELECT COUNT(*) FROM `${tableName}`;")->queryScalar()
+                ]
+            ];
         }
-        return $data;
+
+        return $statData;
     }
 
-    protected static function getSingular($table, $source, $destination, $sourceHost, $destinationHost)
+    protected static function singularSyncObject($table, $source, $destination, $sourceHost, $destinationHost): SyncObject
     {
         $syncObject = new SyncObject();
         $syncObject->setTable($table);
         $syncObject->setSourceHost($sourceHost);
         $syncObject->setDestinationHost($destinationHost);
 
-        if ($source['engine'] !== $destination['engine']) {
-            $syncObject->setEngine(false);
-            $syncObject->setEngineType($source['engine']);
-            $syncObject->setError(true);
-            $syncObject->setErrorSummary("<b>Engine</b> doesn't match");
-        }
-
-        if ($source['autoIncrement'] !== $destination['autoIncrement']) {
-            $syncObject->setAutoIncrement(false);
-            $syncObject->setAutoIncrementKeys($source['autoIncrement']);
-            $syncObject->setError(true);
-            $syncObject->setErrorSummary("<b>Auto Increment</b> <samp>(" . $source['autoIncrement'] . ")<samp> doesn't set. ");
-        }
-
-        if (!empty(array_diff($source['primary'], $destination['primary']))) {
-            $syncObject->setPrimary(false);
-            $syncObject->setError(true);
-            $arrayDiff = array_diff($source['primary'], $destination['primary']);
-            $syncObject->setPrimaryKeys($arrayDiff);
-            if (count($arrayDiff) === 1) {
-                $arrayDiff = '["' . $arrayDiff[0] . '"]';
+        //Check Engine type
+        if (ArrayHelper::getValue($source, 'engine')) {
+            if (ArrayHelper::getValue($destination, 'engine')) {
+                if ((ArrayHelper::getValue($source, 'engineType') !== ArrayHelper::getValue($destination, 'engineType'))) {
+                    $syncObject->setEngine(true);
+                    $syncObject->setEngineType(ArrayHelper::getValue($source, 'engineType'));
+                    $syncObject->setError(true);
+                    $syncObject->setErrorSummary("<b>Engine</b><samp> (" . ArrayHelper::getValue($source, 'engineType') . ")</samp> doesn't match ");
+                }
             } else {
-                $arrayDiff = json_encode($arrayDiff);
+                $syncObject->setEngine(true);
+                $syncObject->setEngineType(ArrayHelper::getValue($source, 'engineType'));
+                $syncObject->setError(true);
+                $syncObject->setErrorSummary("<b>Engine</b> doesn't set.");
             }
-            $syncObject->setErrorSummary("<b>Primary Key</b> doesn't match columns <samp>" . $arrayDiff . "</samp>");
         }
 
-        if (!empty(array_diff($source['unique'], $destination['unique']))) {
-            $syncObject->setUnique(false);
-            $syncObject->setError(true);
-            $arrayDiff = array_diff($source['unique'], $destination['unique']);
-            $syncObject->setUniqueKeys($arrayDiff);
-            if (count($arrayDiff) === 1) {
-                $arrayDiff = '["' . $arrayDiff[0] . '"]';
-            } else {
-                $arrayDiff = json_encode($arrayDiff);
-            }
-            $syncObject->setErrorSummary("<b>Unique Key</b> doesn't match columns <samp>" . $arrayDiff . "</samp>");
-        }
-
-        if (!empty(array_diff($source['index'], $destination['index']))) {
-            $syncObject->setIndex(false);
-            $syncObject->setError(true);
-            $arrayDiff = array_diff($source['index'], $destination['index']);
-            $syncObject->setIndexKeys($arrayDiff);
-            if (count($arrayDiff) > 1) {
-                $arrayDiff = json_encode($arrayDiff);
-            } else {
-                $arrayDiff = '[ "' . $arrayDiff[0] . '" ]';
-            }
-            $syncObject->setErrorSummary("<b>Index Key</b> doesn't match <samp>" . $arrayDiff . "</samp>");
-        }
-
-        if ($source['rows'] !== $destination['rows']) {
-            $syncObject->setRows(false);
-            $syncObject->setNumberOfRows($source['rows']);
-            $syncObject->setError(true);
-            $syncObject->setErrorSummary('<b>Rows</b> ' . $source['rows'] . ' Founded ' . $destination['rows'] . '<b><i> Diff</i></b>:  ' . ($source['rows'] - $destination['rows']) . ' rows');
-        }
-
-        if ($source['cols'] !== $destination['cols']) {
-            $syncObject->setCol(false);
-            $syncObject->setNumberOfCols($source['cols']);
-            $syncObject->setError(true);
-            $syncObject->setErrorSummary("<b>Columns </b> doesn't match founded(<b>" . $destination['cols'] . ")</b> out of <b>" . $source['cols'] . "</b>");
-
-            $missingCol = [];
-
-            foreach ($source['colInfo'] as $colInfo) {
-                $colName = trim($colInfo['COLUMN_NAME']); // country_code
-                $colKey = trim($colInfo['COLUMN_KEY']); // PRI, UNI, MUL, ''
-                if (empty($colKey)) {
-                    $isColMatch = false;
-                    foreach ($destination['colInfo'] as $migColInfo) {
-                        $migColName = trim($migColInfo['COLUMN_NAME']);
-                        if ($migColName === $colName) {
-                            $isColMatch = true;
-
+        //Find all primary keys
+        if (ArrayHelper::getValue($source, 'primary')) {
+            $sourcePrimaryCols = ArrayHelper::getValue($source, 'extra.column.primary');
+            $destinationPrimaryCols = ArrayHelper::getValue($destination, 'extra.column.primary');
+            if ($destinationPrimaryCols) {
+                $isSetError = false;
+                foreach ($sourcePrimaryCols as $sourcePrimaryCol) {
+                    foreach ($destinationPrimaryCols as $destinationPrimaryCol) {
+                        if ((ArrayHelper::getValue($sourcePrimaryCol, 'COLUMN_NAME') === ArrayHelper::getValue($destinationPrimaryCol, 'COLUMN_NAME')) &&
+                            (ArrayHelper::getValue($sourcePrimaryCol, 'COLUMN_KEY') === ArrayHelper::getValue($destinationPrimaryCol, 'COLUMN_KEY'))
+                        ) {
+                            $diff = array_diff($sourcePrimaryCol, $destinationPrimaryCol);
+                            if ($diff['DATA_TYPE']) {
+                                if ($isSetError) {
+                                    $syncObject->setPrimary(true);
+                                    $syncObject->setErrorSummary("<b> - </b> <samp> set(" . ArrayHelper::getValue($sourcePrimaryCol, 'DATA_TYPE') . ")</samp> founded<samp> (" . ArrayHelper::getValue($destinationPrimaryCol, 'DATA_TYPE') . ")</samp>");
+                                } else {
+                                    $syncObject->setPrimary(true);
+                                    $syncObject->setErrorSummary("<b>Primary Key</b> doesn't match, <samp> set(" . ArrayHelper::getValue($sourcePrimaryCol, 'DATA_TYPE') . ")</samp> founded<samp> (" . ArrayHelper::getValue($destinationPrimaryCol, 'DATA_TYPE') . ")</samp>");
+                                }
+                            }
+                        } else {
+                            if ($isSetError) {
+                                $syncObject->setPrimary(true);
+                                $syncObject->setErrorSummary("<b> - </b> <samp> set(" . ArrayHelper::getValue($sourcePrimaryCol, 'DATA_TYPE') . ")</samp> founded<samp> (" . ArrayHelper::getValue($destinationPrimaryCol, 'DATA_TYPE') . ")</samp>");
+                            } else {
+                                $syncObject->setPrimary(true);
+                                $syncObject->setErrorSummary("<b>Primary Key</b> doesn't match, <samp> set(" . ArrayHelper::getValue($sourcePrimaryCol, 'DATA_TYPE') . ")</samp> founded<samp> (" . ArrayHelper::getValue($destinationPrimaryCol, 'DATA_TYPE') . ")</samp>");
+                            }
                         }
                     }
-
-                    if (!$isColMatch) {
-                        $missingCol[] = $colName;
-                    }
+                    $isSetError = true;
                 }
-            }
-
-            if (count($missingCol) > 0) {
-                if (count($missingCol) > 1) {
-                    $missingCol = json_encode($missingCol);
-                } else {
-                    $missingCol = '[ "' . $missingCol[0] . '" ]';
+            } else {
+                $multipleCols = [];
+                foreach ($sourcePrimaryCols as $sourcePrimaryCol) {
+                    $multipleCols[] = $sourcePrimaryCol['COLUMN_NAME'] . "[" . $sourcePrimaryCol['DATA_TYPE'] . "]";
                 }
-
-                $syncObject->setErrorSummary("<b>Columns </b> doesn't match founded(<b>" . $destination['cols'] . ")</b> out of <b>" . $source['cols'] . "</b>");
+                $syncObject->setPrimary(true);
+                $syncObject->setErrorSummary("<b>Primary Key</b><samp> doesn't set( " . implode($multipleCols, ", ") . " )</samp>");
             }
         }
+
+        //find Auto Increment
+        if ((ArrayHelper::getValue($source, 'autoIncrement') && !ArrayHelper::getValue($destination, 'autoIncrement'))) {
+            $syncObject->setAutoIncrement(true);
+            $syncObject->setErrorSummary("<b>Auto Increment</b> <samp>(" . ArrayHelper::getValue($source, 'extra.column.autoIncrement.COLUMN_NAME') . ")</samp> doesn't set. ");
+        }
+
+        //check unique columns
+        if (ArrayHelper::getValue($source, 'unique')) {
+            if (ArrayHelper::getValue($destination, 'unique')) {
+                //match all columns
+                $syncObject->setUnique(true);
+            } else {
+                //does  not match any of the columns
+                $syncObject->setUnique(true);
+            }
+        }
+
+        if (ArrayHelper::getValue($source, 'foreign')) {
+            if (ArrayHelper::getValue($destination, 'foreign')) {
+                //match all columns
+                $syncObject->setForeign(true);
+            } else {
+                //does  not match any of the columns
+                $syncObject->setForeign(true);
+            }
+        }
+
+        if (ArrayHelper::getValue($source, 'index')) {
+            $sourceIndexCols = ArrayHelper::getValue($source, 'extra.column.index');
+            $destinationIndexCols = ArrayHelper::getValue($destination, 'extra.column.index');
+            if ($destinationIndexCols) {
+                if (ArrayHelper::getValue($destination, 'index')) {
+                    //match all columns
+                    $missingCols = [];
+                    foreach ($sourceIndexCols as $srcColumn) {
+                        $isFound = false;
+                        foreach ($destinationIndexCols as $desColumn) {
+                            if ($desColumn['COLUMN_NAME'] === $srcColumn['COLUMN_NAME']) {
+                                $isFound = true;
+                            }
+                        }
+                        if (!$isFound) {
+                            $missingCols[] = $srcColumn['COLUMN_NAME'];
+                        }
+                    }
+                    $syncObject->setIndex(true);
+                    $syncObject->setErrorSummary("<b>Index</b> <samp>( " . implode(", ", $missingCols) . " )</samp> doesn't set. ");
+                } else {
+                    $columns = [];
+                    foreach ($sourceIndexCols as $column) {
+                        $columns[] = $column['COLUMN_NAME'];
+                    }
+                    $syncObject->setIndex(true);
+                    $syncObject->setErrorSummary("<b>Index</b> <samp>( " . implode(", ", $columns) . " )</samp> doesn't set. ");
+                }
+            } else {
+                $columns = [];
+                foreach ($sourceIndexCols as $column) {
+                    $columns[] = $column['COLUMN_NAME'];
+                }
+                $syncObject->setIndex(true);
+                $syncObject->setErrorSummary("<b>Index</b> <samp>( " . implode(", ", $columns) . " )</samp> doesn't set. ");
+            }
+        }
+
+        if (ArrayHelper::getValue($source, 'extra.column.total') !== ArrayHelper::getValue($destination, 'extra.column.total')) {
+            $syncObject->setCol(true);
+            $syncObject->setNumberOfCols(ArrayHelper::getValue($source, 'extra.column.total'));
+            $syncObject->setError(true);
+            $syncObject->setErrorSummary("<b>Columns</b> doesn't match, founded ( " . ArrayHelper::getValue($source, 'extra.column.total') . " ) Diff: ( " . (ArrayHelper::getValue($source, 'extra.column.total') - ArrayHelper::getValue($destination, 'extra.column.total')) . " )");
+
+            $missingCol = [];
+            $sourceColInfo = ArrayHelper::getValue($source, 'extra.column.info');
+            $destinationColInfo = ArrayHelper::getValue($destination, 'extra.column.info');
+            foreach ($sourceColInfo as $colInfo) {
+                $colName = trim($colInfo['COLUMN_NAME']); // country_code
+                $isColMatch = false;
+                foreach ($destinationColInfo as $destColInfo) {
+                    if(trim($colInfo['COLUMN_NAME'])===trim($destColInfo['COLUMN_NAME'])){
+                        $isColMatch = true;
+                    }
+                }
+                if (!$isColMatch) {
+                    $missingCol[] = $colName;
+                }
+            }
+            $syncObject->setErrorSummary("<b> - Missing </b> ( " . implode(", ", $missingCol) . " )");
+        }
+
+        if (ArrayHelper::getValue($source, 'extra.row.total') !== ArrayHelper::getValue($destination, 'extra.row.total')) {
+            $syncObject->setRows(true);
+            $syncObject->setNumberOfRows(ArrayHelper::getValue($source, 'extra.row.total'));
+            $syncObject->setError(true);
+            $syncObject->setErrorSummary("<b>Rows</b> doesn't match, founded ( " . ArrayHelper::getValue($source, 'extra.row.total') . " ) Diff: ( " . (ArrayHelper::getValue($source, 'extra.row.total') - ArrayHelper::getValue($destination, 'extra.row.total')) . " )");
+        }
+
+
+        dd($source);
+        dd($syncObject);
+        die();
+
 
         foreach ($source['colInfo'] as $colInfo) {
             $colName = trim($colInfo['COLUMN_NAME']); // country_code
@@ -269,7 +379,6 @@ class MySQLSynchronization
 
         }
 
-
         if ($source['maxId'] !== $destination['maxId'] && ($source['primary'] === $destination['primary'])) {
             $syncObject->setMax(false);
             $syncObject->setError(true);
@@ -279,41 +388,20 @@ class MySQLSynchronization
         return $syncObject;
     }
 
-    public
-    static function combinedData($sourceData, $destinationData, $sourceHost, $destinationHost)
+    public static function combinedData($sourceData, $destinationData, $sourceHost, $destinationHost): SyncObject
     {
+
+        //dd($sourceData); die();
 
         $map = [];
         foreach ($sourceData as $table => $source) {
             if (isset($destinationData[$table])) {
                 $traget = $destinationData[$table];
-                $map[] = self::getSingular($table, $source, $traget, $sourceHost, $destinationHost);
+                $map[] = self::singularSyncObject($table, $source, $traget, $sourceHost, $destinationHost);
             } else {
-                $object = new stdClass();
-                $object->id = $table;
-                $object->sourceHost = $sourceHost;
-                $object->destinationHost = $destinationHost;
-                $object->table = $table;
-                $object->engine = true;
-                $object->engineType = '';
-                $object->primary = true;
-                $object->primaryKeys = '';
-                $object->autoIncrement = true;
-                $object->autoIncrementKey = '';
-                $object->unique = true;
-                $object->uniqueKeys = '';
-                $object->index = true;
-                $object->indexKeys = '';
-                $object->isCols = true;
-                $object->numberOfCols = 0;
-                $object->isRows = true;
-                $object->numberOfRows = 0;
-                $object->maxType = '';
-                $object->maxId = '';
-                $object->colInfo = '';
-                $object->error = false;
-                $object->errorSummary = ["<b>${table}</b> table doesn't exist."];
-                $map[] = $object;
+                $syncObject = new SyncObject();
+                $syncObject->setErrorSummary("<b>${table}</b> table doesn't exist.");
+                $map[] = $syncObject;
             }
         }
 
@@ -327,8 +415,10 @@ class MySQLSynchronization
 
         $sourceConnection = DynamicConnection::createConnection($sourceConfigModel, $source->dbname);
         $destinationConnection = DynamicConnection::createConnection($destinationConfigModel, $destination->dbname);
+
         $sourceData = MySQLSynchronization::getStatics($sourceConnection, $source->dbname);
         $DestinationData = MySQLSynchronization::getStatics($destinationConnection, $destination->dbname);
+
         $mappingData = MySQLSynchronization::combinedData($sourceData, $DestinationData, $sourceConnection->dsn, $destinationConnection->dsn);
 
         if ($mappingData) {

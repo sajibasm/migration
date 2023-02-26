@@ -4,39 +4,51 @@ namespace app\components;
 
 class SyncObject
 {
-    private $sourceHost;
-    private $destinationHost;
-    private $table;
-    private $engine = true;
-    private $engineType= '';
+    public $sourceHost;
+    public $destinationHost;
+    public $table;
+    public $engine;
+    public $engineType= '';
 
-    private $primary = true;
-    private $primaryKeys = '';
-    private $foreign = true;
-    private $foreignKeys = '';
+    public $primary;
+    public $primaryKeys = '';
+    public $foreign;
+    public $foreignKeys = '';
 
-    private $autoIncrement = true;
-    private $autoIncrementKeys = '';
+    public $autoIncrement;
+    public $autoIncrementKeys = '';
 
-    private $unique = true;
-    private $uniqueKeys = '';
+    public $unique;
+    public $uniqueKeys = '';
 
-    private $index = true;
-    private $indexKeys = '';
+    public $index;
+    public $indexKeys = '';
 
-    private $col = true;
-    private $numberOfCols = '';
+    public $col;
+    public $numberOfCols;
 
-    private $rows = true;
-    private $numberOfRows = '';
-    private $max = true;
-    private $maxType = '';
-    private $maxValue = '';
-    private $colInfo = [];
+    public $rows;
+    public $numberOfRows;
+    public $max;
+    public $maxType = '';
+    public $maxValue = '';
+    public $colInfo = [];
 
-    private $error = true;
-    private $errorSummary = [];
+    public $error;
+    public $errorSummary = [];
 
+    public function __construct(){
+        $this->engine = false;
+        $this->primary = false;
+        $this->foreign = false;
+        $this->autoIncrement = false;
+        $this->unique = false;
+        $this->index = false;
+        $this->col = false;
+        $this->rows = false;
+        $this->max = false;
+        $this->error = false;
+    }
     /**
      * @return string
      */
@@ -56,7 +68,7 @@ class SyncObject
     /**
      * @return string
      */
-    public function getDestinationHost()
+    public function getDestinationHost(): string
     {
         return $this->destinationHost;
     }
@@ -72,7 +84,7 @@ class SyncObject
     /**
      * @return mixed
      */
-    public function getTable()
+    public function getTable(): string
     {
         return $this->table;
     }
@@ -88,7 +100,7 @@ class SyncObject
     /**
      * @return mixed
      */
-    public function getEngine()
+    public function getEngine(): string
     {
         return $this->engine;
     }
@@ -434,7 +446,11 @@ class SyncObject
      */
     public function setErrorSummary($errorSummary): void
     {
-        $this->errorSummary = $errorSummary;
+        if(is_array($errorSummary)){
+            $this->errorSummary[] = $errorSummary;
+        }else{
+            $this->errorSummary[] = $errorSummary;
+        }
     }
 
 
