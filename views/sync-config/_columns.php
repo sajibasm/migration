@@ -45,6 +45,7 @@ return [
                 return Html::button(Icon::show('retweet'), [
                     'type' => 'button',
                     'class' => 'btn btn-default configSync',
+                    'title' =>'Sync',
                     //'id' => 'config-sync-button',
                     'data-url' => Url::to(['sync-config/sync'], true),
                     'data-value' => $model->id,

@@ -26,6 +26,8 @@ class m230221_142136_syncTable extends Migration
             'autoIncrementKey' => $this->string(20)->null(),
             'isPrimary' => $this->smallInteger(1)->defaultValue(0)->notNull(),
             'primaryKeys' => $this->text()->null(),
+            'isForeignKey' => $this->smallInteger(1)->defaultValue(0)->notNull(),
+            'foreignKey' => $this->text()->null(),
             'isUnique' => $this->smallInteger(1)->defaultValue(0)->notNull(),
             'uniqueKeys' => $this->text()->null(),
             'isIndex' => $this->smallInteger(1)->defaultValue(0)->notNull(),
