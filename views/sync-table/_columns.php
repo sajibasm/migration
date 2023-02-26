@@ -27,14 +27,14 @@ return [
     ],
     [
         'attribute' => 'source.host',
-        'header' => 'Source DB',
+        'header' => 'Source(DB)',
         'value' => function ($model) {
             return $model->source->dbname;
         }
     ],
     [
         'attribute' => 'destination.host',
-        'header' => 'Destination DB',
+        'header' => 'Destination(DB)',
         'value' => function ($model) {
             return $model->destination->dbname;
         }
@@ -65,8 +65,14 @@ return [
         'vAlign' => 'middle',
         'attribute' => 'isIndex',
     ],
-    'maxColType',
-    'maxColValue',
+    [
+        'class' => 'kartik\grid\BooleanColumn',
+        'vAlign' => 'middle',
+        'attribute' => 'maxColType',
+        'header' => 'Max',
+    ],
+    //'maxColType',
+    //'maxColValue', //TODO need to add another column into table for flag.
     [
         'class' => 'kartik\grid\BooleanColumn',
         'vAlign' => 'middle',
