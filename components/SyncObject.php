@@ -8,47 +8,49 @@ class SyncObject
     public $destinationHost;
     public $table;
     public $engine;
-    public $engineType= '';
+    public $engineType = '';
 
     public $primary;
-    public $primaryKeys = '';
+    public $primaryKeys;
     public $foreign;
-    public $foreignKeys = '';
+    public $foreignKeys;
 
     public $autoIncrement;
-    public $autoIncrementKeys = '';
+    public $autoIncrementKeys;
 
     public $unique;
-    public $uniqueKeys = '';
+    public $uniqueKeys;
 
     public $index;
-    public $indexKeys = '';
+    public $indexKeys;
 
     public $col;
     public $numberOfCols;
 
     public $rows;
     public $numberOfRows;
-    public $max;
-    public $maxType = '';
-    public $maxValue = '';
-    public $colInfo = [];
+    public $extra;
 
     public $error;
-    public $errorSummary = [];
+    public $errorSummary;
 
-    public function __construct(){
+    public function __construct()
+    {
         $this->engine = false;
         $this->primary = false;
+        $this->primaryKeys = [];
         $this->foreign = false;
+        $this->foreignKeys = [];
         $this->autoIncrement = false;
         $this->unique = false;
+        $this->uniqueKeys = [];
         $this->index = false;
+        $this->indexKeys = [];
         $this->col = false;
         $this->rows = false;
-        $this->max = false;
         $this->error = false;
     }
+
     /**
      * @return string
      */
@@ -158,7 +160,17 @@ class SyncObject
      */
     public function setPrimaryKeys($primaryKeys): void
     {
-        $this->primaryKeys = $primaryKeys;
+        if (is_array($primaryKeys)) {
+            if(empty($this->primaryKeys)){
+                $this->primaryKeys = $primaryKeys;
+            }else{
+                $this->primaryKeys = array_merge($this->primaryKeys, $primaryKeys);
+            }
+        } else {
+            $this->primaryKeys[] = $primaryKeys;
+        }
+
+
     }
 
     /**
@@ -190,7 +202,20 @@ class SyncObject
      */
     public function setForeignKeys($foreignKeys): void
     {
-        $this->foreignKeys = $foreignKeys;
+        try {
+            if (is_array($foreignKeys)) {
+                if(empty($this->uniqueKeys)){
+                    $this->foreignKeys = $foreignKeys;
+                }else{
+                    $this->foreignKeys = array_merge($this->foreignKeys, $foreignKeys);
+                }
+            } else {
+                $this->foreignKeys[] = $foreignKeys;
+            }
+        }catch (\Exception $e){
+            dd($this->foreignKeys, $foreignKeys, $this->getTable());
+            dd($e->getMessage());
+        }
     }
 
     /**
@@ -254,7 +279,15 @@ class SyncObject
      */
     public function setUniqueKeys($uniqueKeys): void
     {
-        $this->uniqueKeys = $uniqueKeys;
+        if (is_array($uniqueKeys)) {
+            if (empty($this->uniqueKeys)) {
+                $this->uniqueKeys = $uniqueKeys;
+            } else {
+                $this->uniqueKeys = array_merge($this->uniqueKeys, $uniqueKeys);
+            }
+        } else {
+            $this->uniqueKeys[] = $uniqueKeys;
+        }
     }
 
     /**
@@ -286,7 +319,15 @@ class SyncObject
      */
     public function setIndexKeys($indexKeys): void
     {
-        $this->indexKeys = $indexKeys;
+        if (is_array($indexKeys)) {
+            if (empty($this->indexKeys)) {
+                $this->indexKeys = $indexKeys;
+            } else {
+                $this->indexKeys = array_merge($this->indexKeys, $indexKeys);
+            }
+        } else {
+            $this->indexKeys[] = $indexKeys;
+        }
     }
 
     /**
@@ -356,65 +397,17 @@ class SyncObject
     /**
      * @return mixed
      */
-    public function getMax()
+    public function getExtra()
     {
-        return $this->max;
+        return $this->extra;
     }
 
     /**
-     * @param mixed $max
+     * @param mixed $extra
      */
-    public function setMax($max): void
+    public function setExtra($extra): void
     {
-        $this->max = $max;
-    }
-
-    /**
-     * @return mixed
-     */
-    public function getMaxType()
-    {
-        return $this->maxType;
-    }
-
-    /**
-     * @param mixed $maxType
-     */
-    public function setMaxType($maxType): void
-    {
-        $this->maxType = $maxType;
-    }
-
-    /**
-     * @return mixed
-     */
-    public function getMaxValue()
-    {
-        return $this->maxValue;
-    }
-
-    /**
-     * @param mixed $maxValue
-     */
-    public function setMaxValue($maxValue): void
-    {
-        $this->maxValue = $maxValue;
-    }
-
-    /**
-     * @return mixed
-     */
-    public function getColInfo()
-    {
-        return $this->colInfo;
-    }
-
-    /**
-     * @param mixed $colInfo
-     */
-    public function setColInfo($colInfo): void
-    {
-        $this->colInfo = $colInfo;
+        $this->extra = $extra;
     }
 
     /**
@@ -446,9 +439,13 @@ class SyncObject
      */
     public function setErrorSummary($errorSummary): void
     {
-        if(is_array($errorSummary)){
-            $this->errorSummary[] = $errorSummary;
-        }else{
+        if (is_array($errorSummary)) {
+            if (empty($this->errorSummary)) {
+                $this->errorSummary = $errorSummary;
+            } else {
+                $this->errorSummary = array_merge($this->errorSummary, $errorSummary);
+            }
+        } else {
             $this->errorSummary[] = $errorSummary;
         }
     }

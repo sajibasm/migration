@@ -58,6 +58,11 @@ return [
     [
         'class' => 'kartik\grid\BooleanColumn',
         'vAlign' => 'middle',
+        'attribute' => 'isForeign',
+    ],
+    [
+        'class' => 'kartik\grid\BooleanColumn',
+        'vAlign' => 'middle',
         'attribute' => 'isUnique',
     ],
     [
@@ -68,21 +73,12 @@ return [
     [
         'class' => 'kartik\grid\BooleanColumn',
         'vAlign' => 'middle',
-        'attribute' => 'maxColType',
-        'header' => 'Max',
-    ],
-    //'maxColType',
-    //'maxColValue', //TODO need to add another column into table for flag.
-    [
-        'class' => 'kartik\grid\BooleanColumn',
-        'vAlign' => 'middle',
         'attribute' => 'isCols',
     ],
     [
         'class' => 'kartik\grid\BooleanColumn',
         'vAlign' => 'middle',
         'attribute' => 'isRows',
-
     ],
     [
         'class' => 'kartik\grid\BooleanColumn',

@@ -17,17 +17,17 @@ use Yii;
  * @property string|null $autoIncrementKey
  * @property int $isPrimary
  * @property string|null $primaryKeys
+ * @property int $isForeign
+ * @property string|null $foreignKeys
  * @property int $isUnique
  * @property string|null $uniqueKeys
  * @property int $isIndex
  * @property string|null $indexKeys
- * @property string|null $maxColType
- * @property string|null $maxColValue
  * @property int|null $numberOfCols
  * @property int|null $numberOfRows
  * * @property int|null $isCols
  * @property int|null $isRows
- * @property string|null $columnStatics
+ * @property string|null $extra
  * @property int $isError
  * @property string|null $errorSummary
  * @property int $status 0=Pull, 1=Schema_Sync, 2=Data_Sync, 9=Processed
@@ -66,13 +66,12 @@ class SyncTable extends \yii\db\ActiveRecord
         return [
             [['sourceDb', 'destinationDb', 'tableName'], 'required'],
             [['tableName'], 'unique', 'targetAttribute' => ['tableName', 'destinationDb', 'sourceDb'], 'message' => 'Combined configuration already exist.'],
-            [['sourceDb', 'destinationDb', 'isEngine', 'autoIncrement', 'isPrimary', 'isUnique', 'isIndex', 'isCols', 'numberOfCols', 'isRows', 'numberOfRows', 'isError', 'status'], 'integer'],
-            [['primaryKeys', 'uniqueKeys', 'indexKeys', 'columnStatics', 'errorSummary'], 'string'],
+            [['sourceDb', 'destinationDb', 'isEngine', 'autoIncrement', 'isPrimary', 'isForeign', 'isUnique', 'isIndex', 'isCols', 'numberOfCols', 'isRows', 'numberOfRows', 'isError', 'status'], 'integer'],
+            [['primaryKeys', 'foreignKeys', 'uniqueKeys', 'indexKeys', 'extra', 'errorSummary'], 'string'],
             [['createdAt', 'processedAt'], 'safe'],
             [['tableName'], 'string', 'max' => 100],
             [['engineType'], 'string', 'max' => 10],
-            [['autoIncrementKey', 'maxColType'], 'string', 'max' => 20],
-            [['maxColValue'], 'string', 'max' => 50],
+            [['autoIncrementKey'], 'string', 'max' => 20],
         ];
     }
 
@@ -90,21 +89,21 @@ class SyncTable extends \yii\db\ActiveRecord
             'engineType' => Yii::t('app', 'Engine Type'),
             'autoIncrement' => Yii::t('app', 'AI'),
             'autoIncrementKey' => Yii::t('app', 'AI Key'),
-            'isPrimary' => Yii::t('app', 'Primary'),
+            'isPrimary' => Yii::t('app', 'PRI'),
             'primaryKeys' => Yii::t('app', 'Primary Keys'),
-            'isUnique' => Yii::t('app', 'Unique'),
+            'isForeign' => Yii::t('app', 'FRN'),
+            'foreignKeys' => Yii::t('app', 'Primary Keys'),
+            'isUnique' => Yii::t('app', 'UNI'),
             'uniqueKeys' => Yii::t('app', 'Unique Keys'),
-            'isIndex' => Yii::t('app', 'Index'),
+            'isIndex' => Yii::t('app', 'IND'),
             'indexKeys' => Yii::t('app', 'Index Keys'),
-            'maxColType' => Yii::t('app', 'MaxType'),
-            'maxColValue' => Yii::t('app', 'MaxValue'),
-            'isCols' => Yii::t('app', 'Cols'),
+            'isCols' => Yii::t('app', 'Col'),
             'numberOfCols' => Yii::t('app', 'Cols'),
-            'isRows' => Yii::t('app', 'Rows'),
+            'isRows' => Yii::t('app', 'Row'),
             'numberOfRows' => Yii::t('app', 'Rows'),
-            'columnStatics' => Yii::t('app', 'Statics'),
+            'extra' => Yii::t('app', 'Extra'),
             'isError' => Yii::t('app', 'Error'),
-            'errorSummary' => Yii::t('app', 'Summary'),
+            'errorSummary' => Yii::t('app', 'Errors'),
             'status' => Yii::t('app', 'Status'),
             'createdAt' => Yii::t('app', 'Created At'),
             'processedAt' => Yii::t('app', 'Processed At'),
