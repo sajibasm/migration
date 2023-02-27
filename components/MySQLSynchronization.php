@@ -268,27 +268,32 @@ class MySQLSynchronization
                     if ($targetPriCols) {
                         foreach ($sourcePriCols as $sourcePriCol) {
                             foreach ($targetPriCols as $targetPriCol) {
+
+
+
                                 if ((ArrayHelper::getValue($sourcePriCol, 'COLUMN_NAME') === ArrayHelper::getValue($targetPriCol, 'COLUMN_NAME')) &&
                                     (ArrayHelper::getValue($sourcePriCol, 'COLUMN_KEY') === 'PRI') && (ArrayHelper::getValue($targetPriCol, 'COLUMN_KEY') === 'PRI')
                                 ) {
                                     ArrayHelper::remove($sourcePriCol, 'TABLE_SCHEMA');
                                     ArrayHelper::remove($targetPriCol, 'TABLE_SCHEMA');
                                     $primaryColumnDiff = array_diff($sourcePriCol, $targetPriCol);
-                                    //dd($primaryColumnDiff, $sourcePriCol, $targetPriCol); die();
+
+                                    //dd($primaryColumnDiff, $sourcePriCol, $targetPriCol);
+                                    //dd($sourceTable, $targetTable); die();
+
                                     if ($primaryColumnDiff) {
 
-                                        $syncObject->setPrimary(true);
-                                        $syncObject->setPrimaryKeys(ArrayHelper::getValue($sourcePriCol, 'DATA_TYPE') ?: []);
-
-                                        if (ArrayHelper::getValue($primaryColumnDiff, 'EXTRA')) {
-                                            if (ArrayHelper::getValue($primaryColumnDiff, 'EXTRA') === 'auto_increment') {
-                                                $syncObject->setAutoIncrement(true);
-                                                $syncObject->setAutoIncrementKeys(ArrayHelper::getValue($sourcePriCol, 'COLUMN_NAME'));
-                                                $syncObject->setErrorSummary("<b>Auto Increment</b> (" . ArrayHelper::getValue($sourceTable, 'extra.column.autoIncrement.COLUMN_NAME') . ") doesn't set. ");
-                                            }
-                                        }
+//                                        if (ArrayHelper::getValue($primaryColumnDiff, 'EXTRA')) {
+//                                            if (ArrayHelper::getValue($primaryColumnDiff, 'EXTRA') === 'auto_increment') {
+//                                                $syncObject->setAutoIncrement(true);
+//                                                $syncObject->setAutoIncrementKeys(ArrayHelper::getValue($sourcePriCol, 'COLUMN_NAME'));
+//                                                $syncObject->setErrorSummary("<b>Auto Increment</b> (" . ArrayHelper::getValue($sourceTable, 'extra.column.autoIncrement.COLUMN_NAME') . ") doesn't set. ");
+//                                            }
+//                                        }
 
                                         if (ArrayHelper::getValue($primaryColumnDiff, 'DATA_TYPE')) {
+                                            $syncObject->setPrimary(true);
+                                            $syncObject->setPrimaryKeys(ArrayHelper::getValue($sourcePriCol, 'COLUMN_NAME') ?: []);
                                             $syncObject->setErrorSummary("<b> - </b>  set(" . ArrayHelper::getValue($sourcePriCol, 'COLUMN_NAME') . "[" . ArrayHelper::getValue($sourcePriCol, 'DATA_TYPE') . "]) modified (" . ArrayHelper::getValue($targetPriCol, 'COLUMN_NAME') . "[" . ArrayHelper::getValue($targetPriCol, 'DATA_TYPE') . "])");
                                         }
                                     }
@@ -307,12 +312,12 @@ class MySQLSynchronization
             }
         }
 
-//        //find Auto Increment
-//        if (ArrayHelper::getValue($sourceTable, 'autoIncrement') && !ArrayHelper::getValue($targetTable, 'autoIncrement')) {
-//            $syncObject->setAutoIncrement(true);
-//            $syncObject->setAutoIncrementKeys(ArrayHelper::getValue($sourceTable, 'extra.column.autoIncrement.COLUMN_NAME'));
-//            $syncObject->setErrorSummary("<b>Auto Increment</b> (" . ArrayHelper::getValue($sourceTable, 'extra.column.autoIncrement.COLUMN_NAME') . ") doesn't set. ");
-//        }
+        //find Auto Increment
+        if (ArrayHelper::getValue($sourceTable, 'autoIncrement') && !ArrayHelper::getValue($targetTable, 'autoIncrement')) {
+            $syncObject->setAutoIncrement(true);
+            $syncObject->setAutoIncrementKeys(ArrayHelper::getValue($sourceTable, 'extra.column.autoIncrement.COLUMN_NAME'));
+            $syncObject->setErrorSummary("<b>Auto Increment</b> (" . ArrayHelper::getValue($sourceTable, 'extra.column.autoIncrement.COLUMN_NAME') . ") doesn't set. ");
+        }
 
         //check unique columns
         if (ArrayHelper::getValue($sourceTable, 'unique')) {
@@ -515,7 +520,7 @@ class MySQLSynchronization
                         if (count($colAttributeError) > 0) {
                             $syncObject->setError(true);
                             $syncObject->setCol(true);
-                            $syncObject->setErrorSummary("<b>Column</b> <u>${colName}</u> attributes erros:");
+                            $syncObject->setErrorSummary("<b>Column</b> <u>${colName}</u> attributes:");
                             $syncObject->setErrorSummary($colAttributeError);
 
                         }
