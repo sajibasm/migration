@@ -215,6 +215,7 @@ class SyncObject
         }catch (\Exception $e){
             dd($this->foreignKeys, $foreignKeys, $this->getTable());
             dd($e->getMessage());
+            die();
         }
     }
 
