@@ -15,6 +15,7 @@ use yii\helpers\Json;
 
 class MySQLSynchronization
 {
+
     public static function syncHostAndDB($id)
     {
 
@@ -50,49 +51,68 @@ class MySQLSynchronization
         return count($tables);
     }
 
-    private function getTableInfo(Connection $connection, string $database)
+    public static function getTableInfo(Connection $connection, string $database, $clearCache = false)
     {
-        $key = md5("getTableInfo".$connection->dsn);
-        $data = Yii::$app->getCache()->get($key);
-        if($data===false){
-            $data = $connection->createCommand("SELECT * FROM  information_schema.TABLES WHERE  TABLE_SCHEMA = '${database}';")->queryAll();
-            Yii::$app->getCache()->set($key, $data, 180);
+        $key = md5("getTableInfo" . $connection->dsn);
+        if ($clearCache) {
+            return Yii::$app->getCache()->delete($key);
+        } else {
+            $data = Yii::$app->getCache()->get($key);
+            if ($data === false) {
+                $data = $connection->createCommand("SELECT * FROM  information_schema.TABLES WHERE  TABLE_SCHEMA = '${database}';")->queryAll();
+                Yii::$app->getCache()->set($key, $data, 180);
+            }
+            return $data;
         }
-        return  $data;
+
     }
 
-    protected function getColumnConstraint(Connection $connection, string $database)
+    public static function getColumnConstraint(Connection $connection, string $database, $clearCache = false)
     {
-        $key = md5("getColumnConstraint".$connection->dsn);
-        $data = Yii::$app->getCache()->get($key);
-        if($data===false){
-            $data = $connection->createCommand("SELECT * FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS WHERE TABLE_SCHEMA = '${database}';  ")->queryAll();
-            Yii::$app->getCache()->set($key, $data, 180);
+        $key = md5("getColumnConstraint" . $connection->dsn);
+        if ($clearCache) {
+            return Yii::$app->getCache()->delete($key);
+        } else {
+            $data = Yii::$app->getCache()->get($key);
+            if ($data === false) {
+                $data = $connection->createCommand("SELECT * FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS WHERE TABLE_SCHEMA = '${database}';  ")->queryAll();
+                Yii::$app->getCache()->set($key, $data, 180);
+            }
+            return $data;
         }
-        return  $data;
     }
 
-    protected function getForeignKeyInfo(Connection $connection, string $database)
+    public static function getForeignKeyInfo(Connection $connection, string $database, $clearCache = false)
     {
-        $key = md5("getForeignKeyInfo".$connection->dsn);
-        $data = Yii::$app->getCache()->get($key);
-        if($data===false){
-            $data = $connection->createCommand("SELECT CONCAT(table_name, '.', column_name) AS 'foreign_key', CONCAT(referenced_table_name, '.', referenced_column_name) AS 'references', constraint_name AS 'constraint_name' FROM information_schema.key_column_usage WHERE referenced_table_name IS NOT NULL AND table_schema = '${database}';")->queryAll();
-            Yii::$app->getCache()->set($key, $data, 180);
+        $key = md5("getForeignKeyInfo" . $connection->dsn);
+        if ($clearCache) {
+            return Yii::$app->getCache()->delete($key);
+        } else {
+            $data = Yii::$app->getCache()->get($key);
+            if ($data === false) {
+                $data = $connection->createCommand("SELECT CONCAT(table_name, '.', column_name) AS 'foreign_key', CONCAT(referenced_table_name, '.', referenced_column_name) AS 'references', constraint_name AS 'constraint_name' FROM information_schema.key_column_usage WHERE referenced_table_name IS NOT NULL AND table_schema = '${database}';")->queryAll();
+                Yii::$app->getCache()->set($key, $data, 180);
+            }
+            return $data;
         }
-        return  $data;
+
     }
 
-    protected function getIndexKeyInfo(Connection $connection, string $database)
+    public static function getIndexKeyInfo(Connection $connection, string $database, $clearCache = false)
     {
-        $key = md5("getIndexKeyInfo".$connection->dsn);
-        $data = Yii::$app->getCache()->get($key);
-        if($data===false){
-            $data = $connection->createCommand("SELECT DISTINCT TABLE_NAME, INDEX_NAME, COLUMN_NAME FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = '${database}';")->queryAll();
-            Yii::$app->getCache()->set($key, $data, 180);
+        $key = md5("getIndexKeyInfo" . $connection->dsn);
+        if ($clearCache) {
+            return Yii::$app->getCache()->delete($key);
+        } else {
+            $data = Yii::$app->getCache()->get($key);
+            if ($data === false) {
+                $data = $connection->createCommand("SELECT DISTINCT TABLE_NAME, INDEX_NAME, COLUMN_NAME FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = '${database}';")->queryAll();
+                Yii::$app->getCache()->set($key, $data, 180);
+            }
+            return $data;
         }
-        return  $data;
     }
+
 
     public static function getTableStatics($connection, $database)
     {
@@ -195,7 +215,16 @@ class MySQLSynchronization
         return $statData;
     }
 
-    protected static function singularSyncObject($table, $sourceTable, $targetTable, $sourceHost, $targetHost): SyncObject
+    /**
+     * @param $table
+     * @param $sourceTable
+     * @param $targetTable
+     * @param $sourceHost
+     * @param $targetHost
+     * @return SyncObject
+     * @throws \Exception
+     */
+    private static function singularSyncObject($table, $sourceTable, $targetTable, $sourceHost, $targetHost): SyncObject
     {
         $syncObject = new SyncObject();
         $syncObject->setTable($table);
@@ -222,48 +251,68 @@ class MySQLSynchronization
 
         //Find all primary keys
         if (ArrayHelper::getValue($sourceTable, 'primary')) {
-            $sourcePrimaryCols = ArrayHelper::getValue($sourceTable, 'extra.column.primary');
-            if ($sourcePrimaryCols) {
-                $destinationPrimaryCols = ArrayHelper::getValue($targetTable, 'extra.column.primary');
-                if ($destinationPrimaryCols) {
-                    foreach ($sourcePrimaryCols as $sourcePrimaryCol) {
-                        foreach ($destinationPrimaryCols as $destinationPrimaryCol) {
-                            if ((ArrayHelper::getValue($sourcePrimaryCol, 'COLUMN_NAME') === ArrayHelper::getValue($destinationPrimaryCol, 'COLUMN_NAME')) &&
-                                (ArrayHelper::getValue($sourcePrimaryCol, 'COLUMN_KEY') === ArrayHelper::getValue($destinationPrimaryCol, 'COLUMN_KEY'))
-                            ) {
-                                ArrayHelper::remove($sourcePrimaryCol, 'TABLE_SCHEMA');
-                                ArrayHelper::remove($destinationPrimaryCol, 'TABLE_SCHEMA');
-                                $primaryDiff = array_diff($sourcePrimaryCol, $destinationPrimaryCol);
-                                //dd($primaryDiff, $sourcePrimaryCols, $destinationPrimaryCols); die();
-                                if ($primaryDiff) {
-                                    $syncObject->setPrimary(true);
-                                    $syncObject->setPrimaryKeys(ArrayHelper::getValue($sourcePrimaryCol, 'DATA_TYPE') ?: []);
-                                    if ($primaryDiff['DATA_TYPE']) {
-                                        $syncObject->setErrorSummary("<b> - </b>  set(" . ArrayHelper::getValue($sourcePrimaryCol, 'DATA_TYPE') . ") modified (" . ArrayHelper::getValue($destinationPrimaryCol, 'DATA_TYPE') . ")");
-                                    } else {
-                                        $syncObject->setErrorSummary("<b>Primary Key</b> doesn't match,  set(" . ArrayHelper::getValue($sourcePrimaryCol, 'DATA_TYPE') . ") modified (" . ArrayHelper::getValue($destinationPrimaryCol, 'DATA_TYPE') . ")");
+
+            $sourcePriCols = ArrayHelper::getValue($sourceTable, 'extra.column.primary');
+
+            if (!ArrayHelper::getValue($targetTable, 'primary') && $sourcePriCols) {
+                $syncObject->setPrimary(true);
+                $primaryCols = [];
+                foreach ($sourcePriCols as $sourcePrimaryCol) {
+                    $primaryCols[] = ArrayHelper::getValue($sourcePrimaryCol, 'COLUMN_NAME') . "[" . ArrayHelper::getValue($sourcePrimaryCol, 'DATA_TYPE') . "]";
+                }
+                $syncObject->setErrorSummary("<b>Primary Key</b> doesn't set( " . implode(", ", $primaryCols) . " )");
+            } else {
+                if ($sourcePriCols) {
+                    $targetPriCols = ArrayHelper::getValue($targetTable, 'extra.column.primary');
+                    //dd($sourcePrimaryCols);dd($targetPrimaryCols);die();
+                    if ($targetPriCols) {
+                        foreach ($sourcePriCols as $sourcePriCol) {
+                            foreach ($targetPriCols as $targetPriCol) {
+                                if ((ArrayHelper::getValue($sourcePriCol, 'COLUMN_NAME') === ArrayHelper::getValue($targetPriCol, 'COLUMN_NAME')) &&
+                                    (ArrayHelper::getValue($sourcePriCol, 'COLUMN_KEY') === 'PRI') && (ArrayHelper::getValue($targetPriCol, 'COLUMN_KEY') === 'PRI')
+                                ) {
+                                    ArrayHelper::remove($sourcePriCol, 'TABLE_SCHEMA');
+                                    ArrayHelper::remove($targetPriCol, 'TABLE_SCHEMA');
+                                    $primaryColumnDiff = array_diff($sourcePriCol, $targetPriCol);
+                                    //dd($primaryColumnDiff, $sourcePriCol, $targetPriCol); die();
+                                    if ($primaryColumnDiff) {
+
+                                        $syncObject->setPrimary(true);
+                                        $syncObject->setPrimaryKeys(ArrayHelper::getValue($sourcePriCol, 'DATA_TYPE') ?: []);
+
+                                        if (ArrayHelper::getValue($primaryColumnDiff, 'EXTRA')) {
+                                            if (ArrayHelper::getValue($primaryColumnDiff, 'EXTRA') === 'auto_increment') {
+                                                $syncObject->setAutoIncrement(true);
+                                                $syncObject->setAutoIncrementKeys(ArrayHelper::getValue($sourcePriCol, 'COLUMN_NAME'));
+                                                $syncObject->setErrorSummary("<b>Auto Increment</b> (" . ArrayHelper::getValue($sourceTable, 'extra.column.autoIncrement.COLUMN_NAME') . ") doesn't set. ");
+                                            }
+                                        }
+
+                                        if (ArrayHelper::getValue($primaryColumnDiff, 'DATA_TYPE')) {
+                                            $syncObject->setErrorSummary("<b> - </b>  set(" . ArrayHelper::getValue($sourcePriCol, 'COLUMN_NAME') . "[" . ArrayHelper::getValue($sourcePriCol, 'DATA_TYPE') . "]) modified (" . ArrayHelper::getValue($targetPriCol, 'COLUMN_NAME') . "[" . ArrayHelper::getValue($targetPriCol, 'DATA_TYPE') . "])");
+                                        }
                                     }
                                 }
                             }
                         }
+                    } else {
+                        $syncObject->setPrimary(true);
+                        $primaryCols = [];
+                        foreach ($sourcePriCols as $sourcePrimaryCol) {
+                            $primaryCols[] = ArrayHelper::getValue($sourcePrimaryCol, 'COLUMN_NAME') . "[" . ArrayHelper::getValue($sourcePrimaryCol, 'DATA_TYPE') . "]";
+                        }
+                        $syncObject->setErrorSummary("<b>Primary Key</b> doesn't set( " . implode(", ", $primaryCols) . " )");
                     }
-                } else {
-                    $primaryCols = [];
-                    foreach ($sourcePrimaryCols as $sourcePrimaryCol) {
-                        $primaryCols[] = $sourcePrimaryCol['COLUMN_NAME'] . "[" . $sourcePrimaryCol['DATA_TYPE'] . "]";
-                    }
-                    $syncObject->setPrimary(true);
-                    $syncObject->setPrimaryKeys($primaryCols ?: []);
-                    $syncObject->setErrorSummary("<b>Primary Key</b> doesn't set( " . implode($primaryCols, ", ") . " )");
                 }
             }
         }
 
-        //find Auto Increment
-        if ((ArrayHelper::getValue($sourceTable, 'autoIncrement') && !ArrayHelper::getValue($targetTable, 'autoIncrement'))) {
-            $syncObject->setAutoIncrement(true);
-            $syncObject->setErrorSummary("<b>Auto Increment</b> (" . ArrayHelper::getValue($sourceTable, 'extra.column.autoIncrement.COLUMN_NAME') . ") doesn't set. ");
-        }
+//        //find Auto Increment
+//        if (ArrayHelper::getValue($sourceTable, 'autoIncrement') && !ArrayHelper::getValue($targetTable, 'autoIncrement')) {
+//            $syncObject->setAutoIncrement(true);
+//            $syncObject->setAutoIncrementKeys(ArrayHelper::getValue($sourceTable, 'extra.column.autoIncrement.COLUMN_NAME'));
+//            $syncObject->setErrorSummary("<b>Auto Increment</b> (" . ArrayHelper::getValue($sourceTable, 'extra.column.autoIncrement.COLUMN_NAME') . ") doesn't set. ");
+//        }
 
         //check unique columns
         if (ArrayHelper::getValue($sourceTable, 'unique')) {
@@ -336,19 +385,19 @@ class MySQLSynchronization
 
         if (ArrayHelper::getValue($sourceTable, 'index')) {
             $sourceIndexCols = ArrayHelper::getValue($sourceTable, 'extra.column.index');
-            $destinationIndexCols = ArrayHelper::getValue($targetTable, 'extra.column.index');
+            $targetIndexCols = ArrayHelper::getValue($targetTable, 'extra.column.index');
 
-            if (ArrayHelper::getValue($targetTable, 'index') && $destinationIndexCols) {
+            if (ArrayHelper::getValue($targetTable, 'index') && $targetIndexCols) {
                 $IndexMissingCols = [];
-                foreach ($sourceIndexCols as $srcColumn) {
+                foreach ($sourceIndexCols as $sourceIndexCol) {
                     $isFound = false;
-                    foreach ($destinationIndexCols as $desColumn) {
-                        if ($desColumn['COLUMN_NAME'] === $srcColumn['COLUMN_NAME']) {
+                    foreach ($targetIndexCols as $targetColumn) {
+                        if ($targetColumn['COLUMN_NAME'] === $sourceIndexCol['COLUMN_NAME']) {
                             $isFound = true;
                         }
                     }
                     if (!$isFound) {
-                        $IndexMissingCols[] = $srcColumn['COLUMN_NAME'];
+                        $IndexMissingCols[] = $sourceIndexCol['COLUMN_NAME'];
                     }
                 }
 
@@ -360,8 +409,8 @@ class MySQLSynchronization
                 }
             } else {
                 $indexColumns = [];
-                foreach ($sourceIndexCols as $column) {
-                    $indexColumns[] = $column['COLUMN_NAME'];
+                foreach ($sourceIndexCols as $sourceIndexColumn) {
+                    $indexColumns[] = $sourceIndexColumn['COLUMN_NAME'];
                 }
                 $syncObject->setIndex(true);
                 $syncObject->setIndexKeys($indexColumns ?: []);
@@ -377,13 +426,13 @@ class MySQLSynchronization
             $syncObject->setErrorSummary("<b>Columns</b> doesn't match, original ( " . ArrayHelper::getValue($sourceTable, 'extra.column.total') . " ) Diff: ( " . (ArrayHelper::getValue($sourceTable, 'extra.column.total') - ArrayHelper::getValue($targetTable, 'extra.column.total')) . " )");
 
             $missingCol = [];
-            $sourceColInfo = ArrayHelper::getValue($sourceTable, 'extra.column.info');
-            $destinationColInfo = ArrayHelper::getValue($targetTable, 'extra.column.info');
-            foreach ($sourceColInfo as $colInfo) {
-                $colName = trim($colInfo['COLUMN_NAME']); // country_code
+            $sourceColInfos = ArrayHelper::getValue($sourceTable, 'extra.column.info');
+            $targetColInfos = ArrayHelper::getValue($targetTable, 'extra.column.info');
+            foreach ($sourceColInfos as $sourceColInfo) {
+                $colName = trim($sourceColInfo['COLUMN_NAME']); // country_code
                 $isColMatch = false;
-                foreach ($destinationColInfo as $destColInfo) {
-                    if (trim($colInfo['COLUMN_NAME']) === trim($destColInfo['COLUMN_NAME'])) {
+                foreach ($targetColInfos as $targetColInfo) {
+                    if (trim($sourceColInfo['COLUMN_NAME']) === trim($targetColInfo['COLUMN_NAME'])) {
                         $isColMatch = true;
                     }
                 }
@@ -401,36 +450,36 @@ class MySQLSynchronization
             $syncObject->setErrorSummary("<b>Rows</b> doesn't match, original ( " . ArrayHelper::getValue($sourceTable, 'extra.row.total') . " ) Diff: ( " . (ArrayHelper::getValue($sourceTable, 'extra.row.total') - ArrayHelper::getValue($targetTable, 'extra.row.total')) . " )");
         }
 
-        $sourceExtraInfo = ArrayHelper::getValue($sourceTable, 'extra.column.info');
-        $destinationExtraInfo = ArrayHelper::getValue($targetTable, 'extra.column.info');
-        if ($sourceExtraInfo && $destinationExtraInfo) {
-            foreach ($sourceExtraInfo as $sourceInfo) {
-                $colName = ArrayHelper::getValue($sourceInfo, 'COLUMN_NAME'); // country_code
-                $colDefault = ArrayHelper::getValue($sourceInfo, 'COLUMN_DEFAULT');  //
-                $colIsNullable = ArrayHelper::getValue($sourceInfo, 'IS_NULLABLE');  //
-                $colDataType = ArrayHelper::getValue($sourceInfo, 'DATA_TYPE'); // varchar, char, int, 'timestamp', '
-                $colKey = ArrayHelper::getValue($sourceInfo, 'COLUMN_KEY');  // PRI, UNI, MUL, ''
-                $colCharMaxLength = ArrayHelper::getValue($sourceInfo, 'CHARACTER_MAXIMUM_LENGTH'); // 255=>varchar, 2=>char, int=>'' ->check NUMERIC_PRECISION
-                $colNumberPrecision = ArrayHelper::getValue($sourceInfo, 'NUMERIC_PRECISION'); // 255=>varchar, 2=>char, int=>'' ->check NUMERIC_PRECISION, 'tinyint'
-                $colDatetimePrecision = ArrayHelper::getValue($sourceInfo, 'DATETIME_PRECISION'); // 255=>varchar, 2=>char, int=>'' ->check NUMERIC_PRECISION, 'tinyint'
-                $colType = ArrayHelper::getValue($sourceInfo, 'COLUMN_TYPE');  // int, varchar , 'CURRENT_TIMESTAMP'
-                $colComment = ArrayHelper::getValue($sourceInfo, 'COLUMN_COMMENT');  //
-                $colExtra = ArrayHelper::getValue($sourceInfo, 'EXTRA');  // 1, 'Running', 'CURRENT_TIMESTAMP'
-                $colCollationName = ArrayHelper::getValue($sourceInfo, 'COLLATION_NAME');  // 1, 'Running', 'CURRENT_TIMESTAMP'
+        $sourceExtraInfos = ArrayHelper::getValue($sourceTable, 'extra.column.info');
+        $targetExtraInfos = ArrayHelper::getValue($targetTable, 'extra.column.info');
+        if ($sourceExtraInfos && $targetExtraInfos) {
+            foreach ($sourceExtraInfos as $sourceExtraInfo) {
+                $colName = ArrayHelper::getValue($sourceExtraInfo, 'COLUMN_NAME'); // country_code
+                $colDefault = ArrayHelper::getValue($sourceExtraInfo, 'COLUMN_DEFAULT');  //
+                $colIsNullable = ArrayHelper::getValue($sourceExtraInfo, 'IS_NULLABLE');  //
+                $colDataType = ArrayHelper::getValue($sourceExtraInfo, 'DATA_TYPE'); // varchar, char, int, 'timestamp', '
+                $colKey = ArrayHelper::getValue($sourceExtraInfo, 'COLUMN_KEY');  // PRI, UNI, MUL, ''
+                $colCharMaxLength = ArrayHelper::getValue($sourceExtraInfo, 'CHARACTER_MAXIMUM_LENGTH'); // 255=>varchar, 2=>char, int=>'' ->check NUMERIC_PRECISION
+                $colNumberPrecision = ArrayHelper::getValue($sourceExtraInfo, 'NUMERIC_PRECISION'); // 255=>varchar, 2=>char, int=>'' ->check NUMERIC_PRECISION, 'tinyint'
+                $colDatetimePrecision = ArrayHelper::getValue($sourceExtraInfo, 'DATETIME_PRECISION'); // 255=>varchar, 2=>char, int=>'' ->check NUMERIC_PRECISION, 'tinyint'
+                $colType = ArrayHelper::getValue($sourceExtraInfo, 'COLUMN_TYPE');  // int, varchar , 'CURRENT_TIMESTAMP'
+                $colComment = ArrayHelper::getValue($sourceExtraInfo, 'COLUMN_COMMENT');  //
+                $colExtra = ArrayHelper::getValue($sourceExtraInfo, 'EXTRA');  // 1, 'Running', 'CURRENT_TIMESTAMP'
+                $colCollationName = ArrayHelper::getValue($sourceExtraInfo, 'COLLATION_NAME');  // 1, 'Running', 'CURRENT_TIMESTAMP'
 
-                foreach ($destinationExtraInfo as $destinationInfo) {
-                    $destColName = ArrayHelper::getValue($destinationInfo, 'COLUMN_NAME'); // country_code
-                    $destColDefault = ArrayHelper::getValue($destinationInfo, 'COLUMN_DEFAULT');  //
-                    $destColIsNullable = ArrayHelper::getValue($destinationInfo, 'IS_NULLABLE');  //
-                    $destColDataType = ArrayHelper::getValue($destinationInfo, 'DATA_TYPE'); // varchar, char, int, 'timestamp', '
-                    $destColKey = ArrayHelper::getValue($destinationInfo, 'COLUMN_KEY');  // PRI, UNI, MUL, ''
-                    $destColCharMaxLength = ArrayHelper::getValue($destinationInfo, 'CHARACTER_MAXIMUM_LENGTH'); // 255=>varchar, 2=>char, int=>'' ->check NUMERIC_PRECISION
-                    $destColNumberPrecision = ArrayHelper::getValue($destinationInfo, 'NUMERIC_PRECISION'); // 255=>varchar, 2=>char, int=>'' ->check NUMERIC_PRECISION, 'tinyint'
-                    $destColDatetimePrecision = ArrayHelper::getValue($destinationInfo, 'DATETIME_PRECISION'); // 255=>varchar, 2=>char, int=>'' ->check NUMERIC_PRECISION, 'tinyint'
-                    $destColType = ArrayHelper::getValue($destinationInfo, 'COLUMN_TYPE');  // int, varchar , 'CURRENT_TIMESTAMP'
-                    $destColComment = ArrayHelper::getValue($destinationInfo, 'COLUMN_COMMENT');  //
-                    $destColExtra = ArrayHelper::getValue($destinationInfo, 'EXTRA');  // 1, 'Running', 'CURRENT_TIMESTAMP'
-                    $destColCollationName = ArrayHelper::getValue($destinationInfo, 'COLLATION_NAME');  // 1, 'Running', 'CURRENT_TIMESTAMP'
+                foreach ($targetExtraInfos as $targetExtraInfo) {
+                    $destColName = ArrayHelper::getValue($targetExtraInfo, 'COLUMN_NAME'); // country_code
+                    $destColDefault = ArrayHelper::getValue($targetExtraInfo, 'COLUMN_DEFAULT');  //
+                    $destColIsNullable = ArrayHelper::getValue($targetExtraInfo, 'IS_NULLABLE');  //
+                    $destColDataType = ArrayHelper::getValue($targetExtraInfo, 'DATA_TYPE'); // varchar, char, int, 'timestamp', '
+                    $destColKey = ArrayHelper::getValue($targetExtraInfo, 'COLUMN_KEY');  // PRI, UNI, MUL, ''
+                    $destColCharMaxLength = ArrayHelper::getValue($targetExtraInfo, 'CHARACTER_MAXIMUM_LENGTH'); // 255=>varchar, 2=>char, int=>'' ->check NUMERIC_PRECISION
+                    $destColNumberPrecision = ArrayHelper::getValue($targetExtraInfo, 'NUMERIC_PRECISION'); // 255=>varchar, 2=>char, int=>'' ->check NUMERIC_PRECISION, 'tinyint'
+                    $destColDatetimePrecision = ArrayHelper::getValue($targetExtraInfo, 'DATETIME_PRECISION'); // 255=>varchar, 2=>char, int=>'' ->check NUMERIC_PRECISION, 'tinyint'
+                    $destColType = ArrayHelper::getValue($targetExtraInfo, 'COLUMN_TYPE');  // int, varchar , 'CURRENT_TIMESTAMP'
+                    $destColComment = ArrayHelper::getValue($targetExtraInfo, 'COLUMN_COMMENT');  //
+                    $destColExtra = ArrayHelper::getValue($targetExtraInfo, 'EXTRA');  // 1, 'Running', 'CURRENT_TIMESTAMP'
+                    $destColCollationName = ArrayHelper::getValue($targetExtraInfo, 'COLLATION_NAME');  // 1, 'Running', 'CURRENT_TIMESTAMP'
 
                     if ($destColName === $colName) {
 
@@ -475,8 +524,12 @@ class MySQLSynchronization
             }
         }
         //["<b>Index Key</b> ( status ) doesn't set. ","<b>Columns</b> doesn't match, original ( 4 ) Diff: ( 1 )","<b> - Absent </b> ( status )","<b>Column</b> <u>name</u> attributes erros:",["&ensp;Comment doesn't match, original (<b>Add Comments</b>) modified (<b></b>)"]]
+
+        //dd($syncObject);
+        //die($syncObject->getAutoIncrementKeys());
         return $syncObject;
     }
+
 
     public static function mapping($sourceData, $destinationData, $sourceHost, $destinationHost)
     {
@@ -502,8 +555,7 @@ class MySQLSynchronization
                 $map[] = $syncObject;
             }
         }
-
-        return (object)$map;
+        return $map;
     }
 
     public static function process(SyncHostDb $source, SyncHostDb $destination)
@@ -521,40 +573,36 @@ class MySQLSynchronization
 
         if ($mappingData) {
             $rows = [];
-            foreach ($mappingData as $object) {
-
-
+            foreach ($mappingData as $key => $syncObject) {
                 $rows[] = [
                     null,
                     $source->id,
                     $destination->id,
-                    $object->table,
-                    (int)!$object->engine,
-                    (string)$object->engineType,
-                    (int)!$object->autoIncrement,
-                    $object->autoIncrementKey,
-                    (int)!$object->primary,
-                    Json::encode($object->primaryKeys),
-                    (int)!$object->foreign,
-                    Json::encode($object->foreignKeys),
-                    (int)!$object->unique,
-                    Json::encode($object->uniqueKeys),
-                    (int)!$object->index,
-                    Json::encode($object->indexKeys),
-                    (int)!$object->col,
-                    (int)!$object->numberOfCols,
-                    (int)!$object->rows,
-                    (int)!$object->numberOfRows,
-                    Json::encode($object->extra),
-                    (int)!$object->error,
-                    Json::encode($object->errorSummary),
+                    $syncObject->table,
+                    (int)!$syncObject->engine,
+                    (string)$syncObject->engineType,
+                    (int)!$syncObject->autoIncrement,
+                    $syncObject->autoIncrementKeys,
+                    (int)!$syncObject->primary,
+                    Json::encode($syncObject->primaryKeys),
+                    (int)!$syncObject->foreign,
+                    Json::encode($syncObject->foreignKeys),
+                    (int)!$syncObject->unique,
+                    Json::encode($syncObject->uniqueKeys),
+                    (int)!$syncObject->index,
+                    Json::encode($syncObject->indexKeys),
+                    (int)!$syncObject->col,
+                    (int)!$syncObject->numberOfCols,
+                    (int)!$syncObject->rows,
+                    (int)!$syncObject->numberOfRows,
+                    Json::encode($syncObject->extra),
+                    (int)!$syncObject->error,
+                    Json::encode($syncObject->errorSummary),
                     SyncTable::STATUS_PULL,
                     date('Y-m-d h:i:s'),
                     date('Y-m-d h:i:s')
                 ];
             }
-
-            //dd($rows);die();
 
             Yii::$app->db->createCommand()->batchInsert(SyncTable::tableName(), [
                 'id', 'sourceDb', 'destinationDb', 'tableName', 'isEngine', 'engineType',
@@ -562,9 +610,6 @@ class MySQLSynchronization
                 'isUnique', 'uniqueKeys', 'isIndex', 'indexKeys', 'isCols', 'numberOfCols', 'isRows',
                 'numberOfRows', 'extra', 'isError', 'errorSummary', 'status', 'createdAt', 'processedAt'
             ], $rows)->execute();
-
         }
-
     }
-
 }
