@@ -146,19 +146,19 @@ class MySQLSynchronization
             $autoIncrementCols = [];
 
             foreach ($indexKeyInfo as $index) {
-                if ($index['TABLE_NAME'] === $tableName) {
+                if (ArrayHelper::getValue($index, 'TABLE_NAME')=== $tableName) {
                     $indexCols[] = $index;
                     $statData[$tableName]['index'] = true;
                 }
             }
 
             foreach ($columnConstraints as $const) {
-                if ($const['TABLE_NAME'] === $tableName) {
+                if (ArrayHelper::getValue($const, 'TABLE_NAME')=== $tableName) {
                     $constraintsCols[] = $const;
-                    if ($const['CONSTRAINT_TYPE'] === 'UNIQUE') {
+                    if (ArrayHelper::getValue($const, 'CONSTRAINT_TYPE')=== 'UNIQUE') {
                         $statData[$tableName]['unique'] = true;
                     }
-                    if ($const['CONSTRAINT_TYPE'] === 'PRIMARY KEY') {
+                    if (ArrayHelper::getValue($const, 'CONSTRAINT_TYPE')=== 'PRIMARY KEY') {
                         $statData[$tableName]['primary'] = true;
                     }
                     $statData[$tableName]['index'] = true;
@@ -175,9 +175,9 @@ class MySQLSynchronization
             }
 
             foreach ($colsInfo as $info) {
-                $table = $info['TABLE_NAME'];
-                $colKey = $info['COLUMN_KEY']; //PRI
-                $extra = $info['EXTRA']; //auto_increment
+                $table = ArrayHelper::getValue($info, 'TABLE_NAME');
+                $colKey = ArrayHelper::getValue($info, 'COLUMN_KEY'); //PRI
+                $extra = ArrayHelper::getValue($info, 'EXTRA'); //auto_increment
                 if ($tableName === $table) {
                     if ($extra === 'auto_increment') {
                         $statData[$tableName]['autoIncrement'] = true;
@@ -185,6 +185,8 @@ class MySQLSynchronization
                     }
                     if ($colKey === 'PRI') {
                         $primaryCols[] = $info;
+                        $info['COLUMN_KEY'] = 'UNI';
+                        $uniqueCols[] = $info;
                     }
                     if ($colKey === 'UNI') {
                         $uniqueCols[] = $info;
@@ -268,7 +270,6 @@ class MySQLSynchronization
                     if ($targetPriCols) {
                         foreach ($sourcePriCols as $sourcePriCol) {
                             foreach ($targetPriCols as $targetPriCol) {
-
 
 
                                 if ((ArrayHelper::getValue($sourcePriCol, 'COLUMN_NAME') === ArrayHelper::getValue($targetPriCol, 'COLUMN_NAME')) &&
@@ -536,45 +537,49 @@ class MySQLSynchronization
     }
 
 
-    public static function mapping($sourceData, $destinationData, $sourceHost, $destinationHost)
+    public static function mapping($sourceData, $targetData, $sourceHost, $destinationHost)
     {
         $map = [];
         foreach ($sourceData as $table => $sourceTable) {
-            if (isset($destinationData[$table])) {
-                $targetTable = $destinationData[$table];
-                $map[] = self::singularSyncObject($table, $sourceTable, $targetTable, $sourceHost, $destinationHost);
-            } else {
-                $syncObject = new SyncObject();
-                $syncObject->setTable($table);
-                $syncObject->setEngine(true);
-                $syncObject->setAutoIncrement(true);
-                $syncObject->setPrimary(true);
-                $syncObject->setForeign(true);
-                $syncObject->setUnique(true);
-                $syncObject->setIndex(true);
-                $syncObject->setCol(true);
-                $syncObject->setRows(true);
-                $syncObject->setError(true);
-                $syncObject->setExtra(ArrayHelper::getValue($sourceTable, 'extra'));
-                $syncObject->setErrorSummary("<b>${table}</b> table doesn't exist.");
-                $map[] = $syncObject;
-            }
+            //if ($table === 'user_profile') {
+
+                if (ArrayHelper::getValue($targetData, $table)) {
+                    $targetTable = ArrayHelper::getValue($targetData, $table);
+                    //dd($sourceTable, $targetTable);die();
+                    $map[] = self::singularSyncObject($table, $sourceTable, $targetTable, $sourceHost, $destinationHost);
+                } else {
+                    $syncObject = new SyncObject();
+                    $syncObject->setTable($table);
+                    $syncObject->setEngine(true);
+                    $syncObject->setAutoIncrement(true);
+                    $syncObject->setPrimary(true);
+                    $syncObject->setForeign(true);
+                    $syncObject->setUnique(true);
+                    $syncObject->setIndex(true);
+                    $syncObject->setCol(true);
+                    $syncObject->setRows(true);
+                    $syncObject->setError(true);
+                    $syncObject->setExtra(ArrayHelper::getValue($sourceTable, 'extra'));
+                    $syncObject->setErrorSummary("<b>${table}</b> table doesn't exist.");
+                    $map[] = $syncObject;
+                }
+            //}
         }
         return $map;
     }
 
-    public static function process(SyncHostDb $source, SyncHostDb $destination)
+    public static function process(SyncHostDb $source, SyncHostDb $target)
     {
-        $sourceConfigModel = SyncConfig::findOne(['type' => $source->type]);
-        $destinationConfigModel = SyncConfig::findOne(['type' => $destination->type]);
+        $sourceConfig = SyncConfig::findOne(['type' => $source->type]);
+        $targetConfig = SyncConfig::findOne(['type' => $target->type]);
 
-        $sourceConnection = DynamicConnection::createConnection($sourceConfigModel, $source->dbname);
-        $destinationConnection = DynamicConnection::createConnection($destinationConfigModel, $destination->dbname);
+        $sourceConnection = DynamicConnection::createConnection($sourceConfig, $source->dbname);
+        $targetConnection = DynamicConnection::createConnection($targetConfig, $target->dbname);
 
         $sourceData = MySQLSynchronization::getTableStatics($sourceConnection, $source->dbname);
-        $DestinationData = MySQLSynchronization::getTableStatics($destinationConnection, $destination->dbname);
+        $targetData = MySQLSynchronization::getTableStatics($targetConnection, $target->dbname);
 
-        $mappingData = MySQLSynchronization::mapping($sourceData, $DestinationData, $sourceConnection->dsn, $destinationConnection->dsn);
+        $mappingData = MySQLSynchronization::mapping($sourceData, $targetData, $sourceConnection->dsn, $targetConnection->dsn);
 
         if ($mappingData) {
             $rows = [];
@@ -582,7 +587,7 @@ class MySQLSynchronization
                 $rows[] = [
                     null,
                     $source->id,
-                    $destination->id,
+                    $target->id,
                     $syncObject->table,
                     (int)!$syncObject->engine,
                     (string)$syncObject->engineType,
