@@ -40,11 +40,22 @@ return [
 //            return Url::to(['view', 'id' => $model->id]);
 //        },
         'buttons' => [
+            'view' => function ($url, $model) {
+                return Html::button(Icon::show('eye'), [
+                    'type' => 'button',
+                    'class' => 'btn btn-primary',
+                ]);
+            },
+            'update' => function ($url, $model) {
+                return Html::button(Icon::show('pencil'), [
+                    'type' => 'button',
+                    'class' => 'btn btn-primary',
+                ]);
+            },
             'sync' => function ($url, $model) {
-
                 return Html::button(Icon::show('retweet'), [
                     'type' => 'button',
-                    'class' => 'btn btn-default configSync',
+                    'class' => 'btn btn-success configSync',
                     'title' =>'Sync',
                     //'id' => 'config-sync-button',
                     'data-url' => Url::to(['sync-config/sync'], true),

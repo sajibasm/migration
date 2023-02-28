@@ -170,7 +170,6 @@ class SyncObject
             $this->primaryKeys[] = $primaryKeys;
         }
 
-
     }
 
     /**

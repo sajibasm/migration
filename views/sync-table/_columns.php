@@ -27,14 +27,14 @@ return [
     ],
     [
         'attribute' => 'source.host',
-        'header' => 'Source(DB)',
+        'header' => 'Source',
         'value' => function ($model) {
             return $model->source->dbname;
         }
     ],
     [
         'attribute' => 'destination.host',
-        'header' => 'Destination(DB)',
+        'header' => 'Target',
         'value' => function ($model) {
             return $model->destination->dbname;
         }
@@ -84,6 +84,7 @@ return [
         'class' => 'kartik\grid\BooleanColumn',
         'vAlign' => 'middle',
         'attribute' => 'isError',
+        'label' => 'Success',
     ],
     [
         'attribute' => 'status',
