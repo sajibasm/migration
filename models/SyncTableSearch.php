@@ -17,8 +17,9 @@ class SyncTableSearch extends SyncTable
     public function rules()
     {
         return [
-            [['id', 'sourceDb', 'destinationDb', 'isEngine', 'autoIncrement', 'isPrimary', 'isUnique', 'isIndex', 'isCols', 'numberOfCols', 'isRows', 'numberOfRows', 'isError', 'status'], 'integer'],
-            [['tableName', 'engineType', 'autoIncrementKey', 'primaryKeys', 'uniqueKeys', 'indexKeys',  'extra', 'errorSummary', 'createdAt', 'processedAt'], 'safe'],
+            [['id', 'sourceDb', 'destinationDb', 'isEngine', 'autoIncrement', 'isPrimary', 'isUnique', 'isIndex', 'isCols', 'isRows', 'isSUccess
+            ', 'status'], 'integer'],
+            [['tableName', 'engine', 'extra', 'errorSummary', 'createdAt', 'processedAt'], 'safe'],
         ];
     }
 
@@ -68,18 +69,14 @@ class SyncTableSearch extends SyncTable
             'isIndex' => $this->isIndex,
             'isCols' => $this->isCols,
             'isRows' => $this->isRows,
-            'isError' => $this->isError,
+            'isSuccess' => $this->isError,
             'status' => $this->status,
             'createdAt' => $this->createdAt,
             'processedAt' => $this->processedAt,
         ]);
 
         $query->andFilterWhere(['like', 'tableName', $this->tableName])
-            ->andFilterWhere(['like', 'engineType', $this->engineType])
-            ->andFilterWhere(['like', 'autoIncrementKey', $this->autoIncrementKey])
-            ->andFilterWhere(['like', 'primaryKeys', $this->primaryKeys])
-            ->andFilterWhere(['like', 'uniqueKeys', $this->uniqueKeys])
-            ->andFilterWhere(['like', 'indexKeys', $this->indexKeys])
+            ->andFilterWhere(['like', 'engine', $this->engineType])
             ->andFilterWhere(['like', 'extra', $this->extra])
             ->andFilterWhere(['like', 'errorSummary', $this->errorSummary]);
 

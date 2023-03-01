@@ -1,9 +1,6 @@
 <?php
 
-use app\components\Constants;
-use app\models\CompanyAccount;
 use app\models\SyncTable;
-use app\modules\AccessControl\components\Access;
 use kartik\grid\GridView;
 use kartik\icons\Icon;
 use yii\helpers\Html;
@@ -83,7 +80,7 @@ return [
     [
         'class' => 'kartik\grid\BooleanColumn',
         'vAlign' => 'middle',
-        'attribute' => 'isError',
+        'attribute' => 'isSuccess',
         'label' => 'Success',
     ],
     [

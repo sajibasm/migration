@@ -5,9 +5,12 @@ namespace app\components;
 use app\models\SyncConfig;
 use app\models\SyncHostDb;
 use app\models\SyncTable;
+use BankDb\BankDb;
+use BankDb\BankDbException;
 use stdClass;
 use Yii;
 use yii\db\Connection;
+use yii\db\mssql\Schema;
 use yii\helpers\ArrayHelper;
 use yii\helpers\Console;
 use yii\helpers\Json;
@@ -146,19 +149,19 @@ class MySQLSynchronization
             $autoIncrementCols = [];
 
             foreach ($indexKeyInfo as $index) {
-                if (ArrayHelper::getValue($index, 'TABLE_NAME')=== $tableName) {
+                if (ArrayHelper::getValue($index, 'TABLE_NAME') === $tableName) {
                     $indexCols[] = $index;
                     $statData[$tableName]['index'] = true;
                 }
             }
 
             foreach ($columnConstraints as $const) {
-                if (ArrayHelper::getValue($const, 'TABLE_NAME')=== $tableName) {
+                if (ArrayHelper::getValue($const, 'TABLE_NAME') === $tableName) {
                     $constraintsCols[] = $const;
-                    if (ArrayHelper::getValue($const, 'CONSTRAINT_TYPE')=== 'UNIQUE') {
+                    if (ArrayHelper::getValue($const, 'CONSTRAINT_TYPE') === 'UNIQUE') {
                         $statData[$tableName]['unique'] = true;
                     }
-                    if (ArrayHelper::getValue($const, 'CONSTRAINT_TYPE')=== 'PRIMARY KEY') {
+                    if (ArrayHelper::getValue($const, 'CONSTRAINT_TYPE') === 'PRIMARY KEY') {
                         $statData[$tableName]['primary'] = true;
                     }
                     $statData[$tableName]['index'] = true;
@@ -536,6 +539,44 @@ class MySQLSynchronization
         return $syncObject;
     }
 
+    public static function TableMetaQueue(Connection $SourceConnection, SyncConfig $sourceConfig, Connection $targetConnection, SyncConfig $targetConfig)
+    {
+        //dd($SourceConnection->schema->getTableNames());
+        //dd($SourceConnection->schema->getTableSchema('user'));
+        //dd($connection->getSchema()->findUniqueIndexes($connection->getSchema()->getTableSchema('user'))  );
+        //die();
+
+        $rows = [];
+        foreach ($SourceConnection->schema->getTableNames() as $key => $tableName) {
+            $rows[] = [
+                null,
+                $sourceConfig->id,
+                $targetConfig->id,
+                $tableName,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                Json::encode([]),
+                false,
+                Json::encode([]),
+                SyncTable::STATUS_TABLE_META_QUEUE,
+                date('Y-m-d h:i:s'),
+                date('Y-m-d h:i:s')
+            ];
+        }
+
+        Yii::$app->db->createCommand()->batchInsert(SyncTable::tableName(), [
+            'id', 'sourceDb', 'destinationDb', 'tableName', 'isEngine', 'autoIncrement',
+            'isPrimary', 'isForeign', 'isUnique', 'isIndex', 'isCols', 'isRows', 'extra',
+            'isSuccess', 'errorSummary', 'status', 'createdAt', 'processedAt'
+        ], $rows)->execute();
+    }
+
 
     public static function mapping($sourceData, $targetData, $sourceHost, $destinationHost)
     {
@@ -543,26 +584,26 @@ class MySQLSynchronization
         foreach ($sourceData as $table => $sourceTable) {
             //if ($table === 'user_profile') {
 
-                if (ArrayHelper::getValue($targetData, $table)) {
-                    $targetTable = ArrayHelper::getValue($targetData, $table);
-                    //dd($sourceTable, $targetTable);die();
-                    $map[] = self::singularSyncObject($table, $sourceTable, $targetTable, $sourceHost, $destinationHost);
-                } else {
-                    $syncObject = new SyncObject();
-                    $syncObject->setTable($table);
-                    $syncObject->setEngine(true);
-                    $syncObject->setAutoIncrement(true);
-                    $syncObject->setPrimary(true);
-                    $syncObject->setForeign(true);
-                    $syncObject->setUnique(true);
-                    $syncObject->setIndex(true);
-                    $syncObject->setCol(true);
-                    $syncObject->setRows(true);
-                    $syncObject->setError(true);
-                    $syncObject->setExtra(ArrayHelper::getValue($sourceTable, 'extra'));
-                    $syncObject->setErrorSummary("<b>${table}</b> table doesn't exist.");
-                    $map[] = $syncObject;
-                }
+            if (ArrayHelper::getValue($targetData, $table)) {
+                $targetTable = ArrayHelper::getValue($targetData, $table);
+                //dd($sourceTable, $targetTable);die();
+                $map[] = self::singularSyncObject($table, $sourceTable, $targetTable, $sourceHost, $destinationHost);
+            } else {
+                $syncObject = new SyncObject();
+                $syncObject->setTable($table);
+                $syncObject->setEngine(true);
+                $syncObject->setAutoIncrement(true);
+                $syncObject->setPrimary(true);
+                $syncObject->setForeign(true);
+                $syncObject->setUnique(true);
+                $syncObject->setIndex(true);
+                $syncObject->setCol(true);
+                $syncObject->setRows(true);
+                $syncObject->setError(true);
+                $syncObject->setExtra(ArrayHelper::getValue($sourceTable, 'extra'));
+                $syncObject->setErrorSummary("<b>${table}</b> table doesn't exist.");
+                $map[] = $syncObject;
+            }
             //}
         }
         return $map;
@@ -573,8 +614,19 @@ class MySQLSynchronization
         $sourceConfig = SyncConfig::findOne(['type' => $source->type]);
         $targetConfig = SyncConfig::findOne(['type' => $target->type]);
 
-        $sourceConnection = DynamicConnection::createConnection($sourceConfig, $source->dbname);
-        $targetConnection = DynamicConnection::createConnection($targetConfig, $target->dbname);
+        $sourceConnection = DynamicConnection::getConnection($sourceConfig, $source->dbname);
+        $targetConnection = DynamicConnection::getConnection($targetConfig, $target->dbname);
+
+        self::TableMetaQueue($sourceConnection, $sourceConfig, $sourceConnection, $targetConfig);
+
+
+        //$columns = $sm->listTableColumns('yii2.user');
+
+        //dd($columns);
+
+
+        die("die();");
+
 
         $sourceData = MySQLSynchronization::getTableStatics($sourceConnection, $source->dbname);
         $targetData = MySQLSynchronization::getTableStatics($targetConnection, $target->dbname);
@@ -608,7 +660,7 @@ class MySQLSynchronization
                     Json::encode($syncObject->extra),
                     (int)!$syncObject->error,
                     Json::encode($syncObject->errorSummary),
-                    SyncTable::STATUS_PULL,
+                    SyncTable::STATUS_TABLE_META_QUEUE,
                     date('Y-m-d h:i:s'),
                     date('Y-m-d h:i:s')
                 ];

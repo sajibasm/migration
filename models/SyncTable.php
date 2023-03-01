@@ -39,15 +39,21 @@ use Yii;
  */
 class SyncTable extends \yii\db\ActiveRecord
 {
-    const STATUS_PULL  = 0;
-    const STATUS_SCHEMA_MIGRATION  = 1;
-    const STATUS_DATA_MIGRATION  = 2;
+    const STATUS_TABLE_META_QUEUE  = 0;
+    const STATUS_TABLE_META_COMPLETED  = 1;
+    const STATUS_SCHEMA_QUEUE  = 2;
+    const STATUS_SCHEMA_COMPLETED  = 3;
+    const STATUS_DATA_QUEUE  = 4;
+    const STATUS_DATA_COMPLETED  = 5;
     const STATUS_PROCESSED  = 9;
 
     const STATUS_LABEL = [
-        self::STATUS_PULL=>'Pull',
-        self::STATUS_SCHEMA_MIGRATION=>'Schema Sync...',
-        self::STATUS_DATA_MIGRATION=>'Data Sync ...',
+        self::STATUS_TABLE_META_QUEUE=>'TableMetaQueue',
+        self::STATUS_TABLE_META_COMPLETED=>'TableMetaCompleted',
+        self::STATUS_SCHEMA_QUEUE=>'SchemaQueue',
+        self::STATUS_SCHEMA_COMPLETED=>'SchemaCompleted',
+        self::STATUS_DATA_QUEUE=>'DataQueue',
+        self::STATUS_DATA_COMPLETED=>'DataCompleted',
         self::STATUS_PROCESSED=>'Processed',
     ];
     /**
@@ -66,12 +72,11 @@ class SyncTable extends \yii\db\ActiveRecord
         return [
             [['sourceDb', 'destinationDb', 'tableName'], 'required'],
             [['tableName'], 'unique', 'targetAttribute' => ['tableName', 'destinationDb', 'sourceDb'], 'message' => 'Combined configuration already exist.'],
-            [['sourceDb', 'destinationDb', 'isEngine', 'autoIncrement', 'isPrimary', 'isForeign', 'isUnique', 'isIndex', 'isCols', 'numberOfCols', 'isRows', 'numberOfRows', 'isError', 'status'], 'integer'],
-            [['primaryKeys', 'foreignKeys', 'uniqueKeys', 'indexKeys', 'extra', 'errorSummary'], 'string'],
+            [['sourceDb', 'destinationDb', 'isEngine', 'autoIncrement', 'isPrimary', 'isForeign', 'isUnique', 'isIndex', 'isCols', 'isRows',  'isSuccess', 'status'], 'integer'],
+            [['extra', 'errorSummary'], 'string'],
             [['createdAt', 'processedAt'], 'safe'],
             [['tableName'], 'string', 'max' => 100],
-            [['engineType'], 'string', 'max' => 10],
-            [['autoIncrementKey'], 'string', 'max' => 20],
+            [['engine'], 'string', 'max' => 20],
         ];
     }
 
@@ -86,23 +91,16 @@ class SyncTable extends \yii\db\ActiveRecord
             'destinationDb' => Yii::t('app', 'Destination'),
             'tableName' => Yii::t('app', 'Table'),
             'isEngine' => Yii::t('app', 'Engine'),
-            'engineType' => Yii::t('app', 'Engine Type'),
+            'engine' => Yii::t('app', 'Engine Type'),
             'autoIncrement' => Yii::t('app', 'AI'),
-            'autoIncrementKey' => Yii::t('app', 'AI Key'),
             'isPrimary' => Yii::t('app', 'PRI'),
-            'primaryKeys' => Yii::t('app', 'Primary Keys'),
             'isForeign' => Yii::t('app', 'FRN'),
-            'foreignKeys' => Yii::t('app', 'Primary Keys'),
             'isUnique' => Yii::t('app', 'UNI'),
-            'uniqueKeys' => Yii::t('app', 'Unique Keys'),
             'isIndex' => Yii::t('app', 'IND'),
-            'indexKeys' => Yii::t('app', 'Index Keys'),
             'isCols' => Yii::t('app', 'Col'),
-            'numberOfCols' => Yii::t('app', 'Cols'),
             'isRows' => Yii::t('app', 'Row'),
-            'numberOfRows' => Yii::t('app', 'Rows'),
             'extra' => Yii::t('app', 'Extra'),
-            'isError' => Yii::t('app', 'Error'),
+            'isSuccess' => Yii::t('app', 'Success'),
             'errorSummary' => Yii::t('app', 'Errors'),
             'status' => Yii::t('app', 'Status'),
             'createdAt' => Yii::t('app', 'Created At'),
