@@ -2,7 +2,7 @@
 
 namespace app\controllers;
 
-use app\components\MySQLSynchronization;
+use app\components\SyncUtility;
 use app\models\SyncTable;
 use app\models\SyncTableSearch;
 use Yii;
@@ -82,9 +82,9 @@ class SyncTableController extends Controller
         $model = new SyncTable();
         if ($this->request->isPost) {
             if ($model->load($this->request->post())) {
-                if(MySQLSynchronization::process($model->source, $model->destination)){
+                if (SyncUtility::saveTableMetaQueue($model->source, $model->target)) {
                     Yii::$app->getSession()->setFlash('success', 'Table meta queue has been created successfully');
-                }else{
+                } else {
                     Yii::$app->getSession()->setFlash('error', 'Unable to create able meta queue');
                 }
                 return $this->redirect(['index']);
@@ -97,6 +97,14 @@ class SyncTableController extends Controller
             'model' => $model,
         ]);
     }
+
+    public function actionQueue()
+    {
+
+        SyncUtility::queue();
+
+    }
+
 
     /**
      * Updates an existing SyncTable model.

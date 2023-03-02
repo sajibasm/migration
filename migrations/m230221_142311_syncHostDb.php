@@ -16,6 +16,7 @@ class m230221_142311_syncHostDb extends Migration
 
         $this->createTable('sync_host_db', [
             'id' => $this->primaryKey(),
+            'config' => $this->integer()->notNull()->comment("ForeignKey of Configuration Table"),
             'host' => $this->string(100)->notNull(),
             'dbname' => $this->string(100)->null(),
             'type' => $this->smallInteger(1)->defaultValue(1)->comment('1=Target, 2=Destination'),

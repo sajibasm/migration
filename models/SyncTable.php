@@ -8,8 +8,8 @@ use Yii;
  * This is the model class for table "sync_table".
  *
  * @property int $id
- * @property int $sourceDb
- * @property int $destinationDb
+ * @property int $sourceId
+ * @property int $targetId
  * @property string $tableName
  * @property int $isEngine
  * @property int $autoIncrement
@@ -27,7 +27,7 @@ use Yii;
  * @property string $processedAt
  *
  * @property SyncHostDb $source
- * @property SyncHostDb $destination
+ * @property SyncHostDb $target
  */
 class SyncTable extends \yii\db\ActiveRecord
 {
@@ -62,9 +62,9 @@ class SyncTable extends \yii\db\ActiveRecord
     public function rules()
     {
         return [
-            [['sourceDb', 'destinationDb', 'tableName'], 'required'],
-            [['tableName'], 'unique', 'targetAttribute' => ['tableName', 'destinationDb', 'sourceDb'], 'message' => 'Combined configuration already exist.'],
-            [['sourceDb', 'destinationDb', 'isEngine', 'autoIncrement', 'isPrimary', 'isForeign', 'isUnique', 'isIndex', 'isCols', 'isRows',  'isSuccess', 'status'], 'integer'],
+            [['source', 'target', 'tableName'], 'required'],
+            [['tableName'], 'unique', 'targetAttribute' => ['tableName', 'target', 'source'], 'message' => 'Combined configuration already exist.'],
+            [['sourceId', 'targetId', 'isEngine', 'autoIncrement', 'isPrimary', 'isForeign', 'isUnique', 'isIndex', 'isCols', 'isRows',  'isSuccess', 'status'], 'integer'],
             [['extra', 'errorSummary'], 'string'],
             [['createdAt', 'processedAt'], 'safe'],
             [['tableName'], 'string', 'max' => 100],
@@ -79,8 +79,8 @@ class SyncTable extends \yii\db\ActiveRecord
     {
         return [
             'id' => Yii::t('app', 'ID'),
-            'sourceDb' => Yii::t('app', 'Source'),
-            'destinationDb' => Yii::t('app', 'Destination'),
+            'sourceId' => Yii::t('app', 'Source'),
+            'targetId' => Yii::t('app', 'Destination'),
             'tableName' => Yii::t('app', 'Table'),
             'isEngine' => Yii::t('app', 'Engine'),
             'autoIncrement' => Yii::t('app', 'AI'),
@@ -170,11 +170,20 @@ class SyncTable extends \yii\db\ActiveRecord
 
     public function getSource()
     {
-        return $this->hasOne(SyncHostDb::className(), ['id' => 'sourceDb']);
+        return $this->hasOne(SyncHostDb::className(), ['id' => 'sourceId']);
     }
 
-    public function getDestination()
+    public function getTarget()
     {
-        return $this->hasOne(SyncHostDb::className(), ['id' => 'destinationDb']);
+        return $this->hasOne(SyncHostDb::className(), ['id' => 'targetId']);
     }
+
+    public static function setErrorSummary(SyncTable &$model, string $error)
+    {
+        if(!empty($model->errorSummary)){
+
+        }
+    }
+    
+    
 }

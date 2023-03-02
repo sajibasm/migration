@@ -3,6 +3,7 @@
 namespace app\components;
 use app\models\SyncConfig;
 use yii\db\Connection;
+use yii\db\Exception;
 
 class DynamicConnection
 {
@@ -17,27 +18,15 @@ class DynamicConnection
         return new Connection(['dsn' => $dsn, 'username' => $model->username, 'password' => $model->password]);
     }
 
-
     public static function getConnectionByModel($model)
     {
         try {
             $dsn = SyncConfig::DB_TYPE[$model->dbType].":host=".$model->host .";dbname=".$model->dbname;
-            $connection = new Connection(['dsn' => $dsn, 'username' => $model->username, 'password' => $model->password,]);
-             $connection->open();
-             return  $connection;
-        } catch (\yii\db\Exception $e) {
-            echo "Connection Erros: ". $e->getMessage();
+            return new Connection(['dsn' => $dsn, 'username' => $model->username, 'password' => $model->password,]);
+        } catch (Exception $e) {
+            echo "Connection Error: ". $e->getMessage();
             return false;
         }
-    }
-
-    public static function getHostName($db)
-    {
-
-        if($db){
-            return substr($db->dsn, (strpos($db->dsn, '=')+1), (strpos($db->dsn, ';')-strpos($db->dsn, '=')));
-        }
-        return false;
     }
 
 }

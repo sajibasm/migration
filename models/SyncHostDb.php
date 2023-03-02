@@ -9,11 +9,13 @@ use yii\helpers\ArrayHelper;
  * This is the model class for table "sync_host_db".
  *
  * @property int $id
+ * @property int $config
  * @property string $host
  * @property string|null $dbname
  * @property int|null $type
  * @property string $createdAt
  * @property string $updatedAt
+ * @property SyncConfig $configuration
  */
 class SyncHostDb extends \yii\db\ActiveRecord
 {
@@ -35,8 +37,8 @@ class SyncHostDb extends \yii\db\ActiveRecord
     public function rules()
     {
         return [
-            [['host', 'dbname', 'type'], 'required'],
-            [['type'], 'integer'],
+            [['host', 'dbname', 'type', 'config'], 'required'],
+            [['type', 'config'], 'integer'],
             [['createdAt', 'updatedAt'], 'safe'],
             [['dbname'], 'unique', 'targetAttribute' => ['host', 'type', 'dbname'], 'message' => 'Combined configuration already exist.'],
             [['host', 'dbname'], 'string', 'max' => 100],
@@ -50,6 +52,7 @@ class SyncHostDb extends \yii\db\ActiveRecord
     {
         return [
             'id' => Yii::t('app', 'ID'),
+            'config' => Yii::t('app', 'config'),
             'host' => Yii::t('app', 'Host'),
             'dbname' => Yii::t('app', 'Database'),
             'createdAt' => Yii::t('app', 'CreatedAt'),
@@ -63,4 +66,9 @@ class SyncHostDb extends \yii\db\ActiveRecord
         return ArrayHelper::map($models, 'id', 'dbname');
     }
 
+
+    public function getConfiguration()
+    {
+        return $this->hasOne(SyncConfig::className(), ['id' => 'config']);
+    }
 }

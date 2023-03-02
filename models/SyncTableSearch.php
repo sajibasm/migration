@@ -17,7 +17,7 @@ class SyncTableSearch extends SyncTable
     public function rules()
     {
         return [
-            [['id', 'sourceDb', 'destinationDb', 'isEngine', 'autoIncrement', 'isPrimary', 'isUnique', 'isIndex', 'isCols', 'isRows', 'isSuccess'], 'integer'],
+            [['id', 'sourceId', 'targetId', 'isEngine', 'autoIncrement', 'isPrimary', 'isUnique', 'isIndex', 'isCols', 'isRows', 'isSuccess'], 'integer'],
             [['status'], 'integer'],
             [['tableName', 'extra', 'errorSummary', 'createdAt', 'processedAt'], 'safe'],
         ];
@@ -60,8 +60,8 @@ class SyncTableSearch extends SyncTable
         // grid filtering conditions
         $query->andFilterWhere([
             'id' => $this->id,
-            'sourceDb' => $this->sourceDb,
-            'destinationDb' => $this->destinationDb,
+            'sourceId' => $this->sourceId,
+            'target' => $this->targetId,
             'isEngine' => $this->isEngine,
             'autoIncrement' => $this->autoIncrement,
             'isPrimary' => $this->isPrimary,

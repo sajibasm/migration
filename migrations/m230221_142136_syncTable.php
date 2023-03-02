@@ -17,8 +17,8 @@ class m230221_142136_syncTable extends Migration
 
         $this->createTable('sync_table', [
             'id' => $this->primaryKey(),
-            'sourceDb' => $this->integer()->notNull(),
-            'destinationDb' => $this->integer()->notNull(),
+            'sourceId' => $this->integer()->notNull(),
+            'targetId' => $this->integer()->notNull(),
             'tableName' => $this->string(100)->notNull(),
             'isEngine'=>$this->smallInteger(1)->defaultValue(0)->notNull(),
             'autoIncrement' => $this->smallInteger(1)->defaultValue(0)->notNull(),
@@ -35,7 +35,7 @@ class m230221_142136_syncTable extends Migration
             'createdAt' => $this->timestamp()->defaultExpression('NOW()')->notNull(),
             'processedAt' => $this->timestamp()->defaultExpression('NOW()')->notNull()
         ],  $tableOptions);
-        $this->createIndex('combinedUnique', 'sync_table', ['sourceDb', 'destinationDb', 'tableName'], true);
+        $this->createIndex('compositeKey', 'sync_table', ['sourceId', 'targetId', 'tableName'], true);
     }
 
     /**

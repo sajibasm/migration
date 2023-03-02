@@ -17,10 +17,10 @@ use yii\helpers\Html;
 
     <div class="row">
         <div class="col">
-            <?= $form->field($model, 'sourceDb')->dropDownList(ArrayHelper::map(SyncHostDb::find()->where(['type' => SyncConfig::TYPE_SOURCE])->orderBy('dbname')->all(), 'id', 'dbname')) ?>
+            <?= $form->field($model, 'sourceId')->dropDownList(ArrayHelper::map(SyncHostDb::find()->where(['type' => SyncConfig::TYPE_SOURCE])->orderBy('dbname')->all(), 'id', 'dbname')) ?>
         </div>
         <div class="col">
-            <?= $form->field($model, 'destinationDb')->dropDownList(ArrayHelper::map(SyncHostDb::find()->where(['type' => SyncConfig::TYPE_DESTINATION])->orderBy('dbname')->all(), 'id', 'dbname')) ?>
+            <?= $form->field($model, 'targetId')->dropDownList(ArrayHelper::map(SyncHostDb::find()->where(['type' => SyncConfig::TYPE_DESTINATION])->orderBy('dbname')->all(), 'id', 'dbname')) ?>
         </div>
     </div>
 

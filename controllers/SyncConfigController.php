@@ -2,7 +2,7 @@
 
 namespace app\controllers;
 
-use app\components\MySQLSynchronization;
+use app\components\SyncUtility;
 use app\models\SyncConfig;
 use app\models\SyncConfigSearch;
 use Yii;
@@ -81,6 +81,7 @@ class SyncConfigController extends Controller
         $model = new SyncConfig();
         if ($this->request->isPost) {
             if ($model->load($this->request->post()) && $model->save()) {
+                Yii::$app->getSession()->setFlash('success', 'Database configuration has been successfully added.');
                 return $this->redirect(['index']);
             }
         } else {
@@ -97,9 +98,9 @@ class SyncConfigController extends Controller
         if (Yii::$app->request->isAjax) {
             \Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
             try {
-                $nunberOfRecordSaved = MySQLSynchronization::syncHostAndDB($id);
-                if ($nunberOfRecordSaved) {
-                    return ['success'=>true, 'records'=>$nunberOfRecordSaved];
+                $numberOfRecordSaved = SyncUtility::getHostToDatabase($id);
+                if ($numberOfRecordSaved) {
+                    return ['success'=>true, 'records'=>$numberOfRecordSaved];
                 } else {
                     return ['success'=>true, 'records'=>0];
                 }
@@ -123,7 +124,7 @@ class SyncConfigController extends Controller
         $model = $this->findModel($id);
 
         if ($this->request->isPost && $model->load($this->request->post()) && $model->save()) {
-            Yii::$app->getSession()->setFlash('success', 'DB Config Successfully Updated');
+            Yii::$app->getSession()->setFlash('info', 'Database configuration has been successfully updated.');
             return $this->redirect(['index']);
         }
 
