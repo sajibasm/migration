@@ -17,9 +17,9 @@ class SyncTableSearch extends SyncTable
     public function rules()
     {
         return [
-            [['id', 'sourceDb', 'destinationDb', 'isEngine', 'autoIncrement', 'isPrimary', 'isUnique', 'isIndex', 'isCols', 'isRows', 'isSUccess
-            ', 'status'], 'integer'],
-            [['tableName', 'engine', 'extra', 'errorSummary', 'createdAt', 'processedAt'], 'safe'],
+            [['id', 'sourceDb', 'destinationDb', 'isEngine', 'autoIncrement', 'isPrimary', 'isUnique', 'isIndex', 'isCols', 'isRows', 'isSuccess'], 'integer'],
+            [['status'], 'integer'],
+            [['tableName', 'extra', 'errorSummary', 'createdAt', 'processedAt'], 'safe'],
         ];
     }
 
@@ -69,14 +69,13 @@ class SyncTableSearch extends SyncTable
             'isIndex' => $this->isIndex,
             'isCols' => $this->isCols,
             'isRows' => $this->isRows,
-            'isSuccess' => $this->isError,
+            'isSuccess' => $this->isSuccess,
             'status' => $this->status,
             'createdAt' => $this->createdAt,
             'processedAt' => $this->processedAt,
         ]);
 
         $query->andFilterWhere(['like', 'tableName', $this->tableName])
-            ->andFilterWhere(['like', 'engine', $this->engineType])
             ->andFilterWhere(['like', 'extra', $this->extra])
             ->andFilterWhere(['like', 'errorSummary', $this->errorSummary]);
 

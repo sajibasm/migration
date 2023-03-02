@@ -5,6 +5,7 @@ namespace app\controllers;
 use app\components\MySQLSynchronization;
 use app\models\SyncTable;
 use app\models\SyncTableSearch;
+use Yii;
 use yii\filters\AccessControl;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
@@ -81,7 +82,11 @@ class SyncTableController extends Controller
         $model = new SyncTable();
         if ($this->request->isPost) {
             if ($model->load($this->request->post())) {
-                MySQLSynchronization::process($model->source, $model->destination);
+                if(MySQLSynchronization::process($model->source, $model->destination)){
+                    Yii::$app->getSession()->setFlash('success', 'Table meta queue has been created successfully');
+                }else{
+                    Yii::$app->getSession()->setFlash('error', 'Unable to create able meta queue');
+                }
                 return $this->redirect(['index']);
             }
         } else {

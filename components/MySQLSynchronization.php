@@ -546,35 +546,40 @@ class MySQLSynchronization
         //dd($connection->getSchema()->findUniqueIndexes($connection->getSchema()->getTableSchema('user'))  );
         //die();
 
-        $rows = [];
-        foreach ($SourceConnection->schema->getTableNames() as $key => $tableName) {
-            $rows[] = [
-                null,
-                $sourceConfig->id,
-                $targetConfig->id,
-                $tableName,
-                false,
-                false,
-                false,
-                false,
-                false,
-                false,
-                false,
-                false,
-                Json::encode([]),
-                false,
-                Json::encode([]),
-                SyncTable::STATUS_TABLE_META_QUEUE,
-                date('Y-m-d h:i:s'),
-                date('Y-m-d h:i:s')
-            ];
-        }
+        try {
+            $rows = [];
+            foreach ($SourceConnection->schema->getTableNames() as $key => $tableName) {
+                $rows[] = [
+                    null,
+                    $sourceConfig->id,
+                    $targetConfig->id,
+                    $tableName,
+                    false,
+                    false,
+                    false,
+                    false,
+                    false,
+                    false,
+                    false,
+                    false,
+                    Json::encode([]),
+                    false,
+                    Json::encode([]),
+                    SyncTable::STATUS_TABLE_META_QUEUE,
+                    date('Y-m-d h:i:s'),
+                    date('Y-m-d h:i:s')
+                ];
+            }
 
-        Yii::$app->db->createCommand()->batchInsert(SyncTable::tableName(), [
-            'id', 'sourceDb', 'destinationDb', 'tableName', 'isEngine', 'autoIncrement',
-            'isPrimary', 'isForeign', 'isUnique', 'isIndex', 'isCols', 'isRows', 'extra',
-            'isSuccess', 'errorSummary', 'status', 'createdAt', 'processedAt'
-        ], $rows)->execute();
+            return Yii::$app->db->createCommand()->batchInsert(SyncTable::tableName(), [
+                'id', 'sourceDb', 'destinationDb', 'tableName', 'isEngine', 'autoIncrement',
+                'isPrimary', 'isForeign', 'isUnique', 'isIndex', 'isCols', 'isRows', 'extra',
+                'isSuccess', 'errorSummary', 'status', 'createdAt', 'processedAt'
+            ], $rows)->execute();
+        } catch (\Exception $e) {
+            echo $e->getMessage();
+            return  false;
+        }
     }
 
 
@@ -617,61 +622,6 @@ class MySQLSynchronization
         $sourceConnection = DynamicConnection::getConnection($sourceConfig, $source->dbname);
         $targetConnection = DynamicConnection::getConnection($targetConfig, $target->dbname);
 
-        self::TableMetaQueue($sourceConnection, $sourceConfig, $sourceConnection, $targetConfig);
-
-
-        //$columns = $sm->listTableColumns('yii2.user');
-
-        //dd($columns);
-
-
-        die("die();");
-
-
-        $sourceData = MySQLSynchronization::getTableStatics($sourceConnection, $source->dbname);
-        $targetData = MySQLSynchronization::getTableStatics($targetConnection, $target->dbname);
-
-        $mappingData = MySQLSynchronization::mapping($sourceData, $targetData, $sourceConnection->dsn, $targetConnection->dsn);
-
-        if ($mappingData) {
-            $rows = [];
-            foreach ($mappingData as $key => $syncObject) {
-                $rows[] = [
-                    null,
-                    $source->id,
-                    $target->id,
-                    $syncObject->table,
-                    (int)!$syncObject->engine,
-                    (string)$syncObject->engineType,
-                    (int)!$syncObject->autoIncrement,
-                    $syncObject->autoIncrementKeys,
-                    (int)!$syncObject->primary,
-                    Json::encode($syncObject->primaryKeys),
-                    (int)!$syncObject->foreign,
-                    Json::encode($syncObject->foreignKeys),
-                    (int)!$syncObject->unique,
-                    Json::encode($syncObject->uniqueKeys),
-                    (int)!$syncObject->index,
-                    Json::encode($syncObject->indexKeys),
-                    (int)!$syncObject->col,
-                    (int)!$syncObject->numberOfCols,
-                    (int)!$syncObject->rows,
-                    (int)!$syncObject->numberOfRows,
-                    Json::encode($syncObject->extra),
-                    (int)!$syncObject->error,
-                    Json::encode($syncObject->errorSummary),
-                    SyncTable::STATUS_TABLE_META_QUEUE,
-                    date('Y-m-d h:i:s'),
-                    date('Y-m-d h:i:s')
-                ];
-            }
-
-            Yii::$app->db->createCommand()->batchInsert(SyncTable::tableName(), [
-                'id', 'sourceDb', 'destinationDb', 'tableName', 'isEngine', 'engineType',
-                'autoIncrement', 'autoIncrementKey', 'isPrimary', 'primaryKeys', 'isForeign', 'foreignKeys',
-                'isUnique', 'uniqueKeys', 'isIndex', 'indexKeys', 'isCols', 'numberOfCols', 'isRows',
-                'numberOfRows', 'extra', 'isError', 'errorSummary', 'status', 'createdAt', 'processedAt'
-            ], $rows)->execute();
-        }
+        return self::TableMetaQueue($sourceConnection, $sourceConfig, $sourceConnection, $targetConfig);
     }
 }

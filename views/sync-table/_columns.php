@@ -26,14 +26,14 @@ return [
         'attribute' => 'source.host',
         'header' => 'Source',
         'value' => function ($model) {
-            return $model->source->dbname;
+            return isset($model->source->dbname) ?: null;
         }
     ],
     [
         'attribute' => 'destination.host',
         'header' => 'Target',
         'value' => function ($model) {
-            return $model->destination->dbname;
+            return isset($model->destination->dbname) ?: null;
         }
     ],
     'tableName',
@@ -102,36 +102,41 @@ return [
 //        },
         'buttons' => [
             'sync' => function ($url, $model) {
-                return Html::a(Icon::show('cloud'), Url::to(['view', 'id' => $model->id]), [
-                    'class' => 'btn btn-soft-info btn-sm waves-effect waves-light approveModal',
-                    'data-pjax' => 0,
-                    'data-bs-toggle' => "tooltip",
-                    'data-bs-placement' => "top",
-                    'data-bs-original-title' => "Approve",
-                ]);
+                if ($model->status !== SyncTable::STATUS_TABLE_META_QUEUE) {
+                    return Html::a(Icon::show('cloud'), Url::to(['view', 'id' => $model->id]), [
+                        'class' => 'btn btn-soft-info btn-sm waves-effect waves-light approveModal',
+                        'data-pjax' => 0,
+                        'data-bs-toggle' => "tooltip",
+                        'data-bs-placement' => "top",
+                        'data-bs-original-title' => "Approve",
+                    ]);
+                }
             },
-//            'view' => function ($url, $model) {
-//                if (Access::hasAction('view')) {
-//                    return Html::a('<span class="bx bx-show"></span>', Url::to(['view', 'id' => $model->uuid]), [
-//                        'class' => 'btn btn-soft-primary btn-sm waves-effect waves-light',
-//                        'data-pjax' => 0,
-//                        'data-bs-toggle' => "tooltip",
-//                        'data-bs-placement' => "top",
-//                        'data-bs-original-title' => "View",
-//                    ]);
-//                }
-//            },
-//            'update' => function ($url, $model) {
-//                if (Access::hasAction('update') && $model->status===Constants::STATUS_APPROVED) {
-//                    return Html::a('<span class="dripicons-document-edit"></span>', Url::to(['update', 'id' => $model->uuid]), [
-//                        'class' => 'btn btn-soft-warning btn-sm waves-effect waves-light',
-//                        'data-pjax' => 0,
-//                        'data-bs-toggle' => "tooltip",
-//                        'data-bs-placement' => "top",
-//                        'data-bs-original-title' => "Update",
-//                    ]);
-//                }
-//            },
+
+
+            'view' => function ($url, $model) {
+                if ($model->status !== SyncTable::STATUS_TABLE_META_QUEUE) {
+                    return Html::a('<span class="bx bx-show"></span>', Url::to(['view', 'id' => $model->uuid]), [
+                        'class' => 'btn btn-soft-primary btn-sm waves-effect waves-light',
+                        'data-pjax' => 0,
+                        'data-bs-toggle' => "tooltip",
+                        'data-bs-placement' => "top",
+                        'data-bs-original-title' => "View",
+                    ]);
+                }
+            },
+
+            'update' => function ($url, $model) {
+                if ($model->status !== SyncTable::STATUS_TABLE_META_QUEUE) {
+                    return Html::a('<span class="dripicons-document-edit"></span>', Url::to(['update', 'id' => $model->uuid]), [
+                        'class' => 'btn btn-soft-warning btn-sm waves-effect waves-light',
+                        'data-pjax' => 0,
+                        'data-bs-toggle' => "tooltip",
+                        'data-bs-placement' => "top",
+                        'data-bs-original-title' => "Update",
+                    ]);
+                }
+            },
         ],
     ],
 ];

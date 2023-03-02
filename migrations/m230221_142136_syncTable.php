@@ -21,7 +21,6 @@ class m230221_142136_syncTable extends Migration
             'destinationDb' => $this->integer()->notNull(),
             'tableName' => $this->string(100)->notNull(),
             'isEngine'=>$this->smallInteger(1)->defaultValue(0)->notNull(),
-            'engine'=>$this->string(20)->null(),
             'autoIncrement' => $this->smallInteger(1)->defaultValue(0)->notNull(),
             'isPrimary' => $this->smallInteger(1)->defaultValue(0)->notNull(),
             'isForeign' => $this->smallInteger(1)->defaultValue(0)->notNull(),

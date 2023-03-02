@@ -12,23 +12,15 @@ use Yii;
  * @property int $destinationDb
  * @property string $tableName
  * @property int $isEngine
- * @property string|null $engineType
  * @property int $autoIncrement
- * @property string|null $autoIncrementKey
  * @property int $isPrimary
- * @property string|null $primaryKeys
  * @property int $isForeign
- * @property string|null $foreignKeys
  * @property int $isUnique
- * @property string|null $uniqueKeys
  * @property int $isIndex
- * @property string|null $indexKeys
- * @property int|null $numberOfCols
- * @property int|null $numberOfRows
- * * @property int|null $isCols
+ * @property int|null $isCols
  * @property int|null $isRows
  * @property string|null $extra
- * @property int $isError
+ * @property int $isSuccess
  * @property string|null $errorSummary
  * @property int $status 0=Pull, 1=Schema_Sync, 2=Data_Sync, 9=Processed
  * @property string $createdAt
@@ -91,7 +83,6 @@ class SyncTable extends \yii\db\ActiveRecord
             'destinationDb' => Yii::t('app', 'Destination'),
             'tableName' => Yii::t('app', 'Table'),
             'isEngine' => Yii::t('app', 'Engine'),
-            'engine' => Yii::t('app', 'Engine Type'),
             'autoIncrement' => Yii::t('app', 'AI'),
             'isPrimary' => Yii::t('app', 'PRI'),
             'isForeign' => Yii::t('app', 'FRN'),
