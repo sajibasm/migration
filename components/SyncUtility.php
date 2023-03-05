@@ -5,14 +5,11 @@ namespace app\components;
 use app\models\SyncConfig;
 use app\models\SyncHostDb;
 use app\models\SyncTable;
-use BankDb\BankDb;
-use BankDb\BankDbException;
-use stdClass;
+use Exception;
 use Yii;
 use yii\db\Connection;
-use yii\db\mssql\Schema;
+use yii\db\TableSchema;
 use yii\helpers\ArrayHelper;
-use yii\helpers\Console;
 use yii\helpers\Json;
 
 
@@ -110,163 +107,185 @@ class SyncUtility
         }
     }
 
-    private static function singularSync(SyncTable &$syncModel, $sourceSchema, $targetSchema, $sourceSchemaInfo, $targetSchemaInfo)
+    private static function singularSync(SyncTable &$syncModel, Connection $sourceConnection, Connection $targetConnection, TableSchema $sourceSchema, TableSchema $targetSchema, $sourceSchemaInfo, $targetSchemaInfo)
     {
 
         $errorSummary = [];
+        $syncModel->isEngine = 1;
+        $syncModel->autoIncrement = 1;
+        $syncModel->isPrimary = 1;
+        $syncModel->isForeign = 1;
+        $syncModel->isUnique = 1;
+        $syncModel->isIndex = 1;
+        $syncModel->isCols = 1;
+        $syncModel->isRows = 1;
+        $syncModel->isSuccess = 1;
+        $syncModel->status = SyncTable::STATUS_SCHEMA_COMPLETED;
         $syncModel->extra = Json::encode(['schema' => $sourceSchema, 'info' => $sourceSchemaInfo]);
-
-        //dd($sourceSchemaInfo);
-        //die();
-
+        $syncModel->tableName = $sourceSchema->fullName;
 
         //Check Engine type
         if (ArrayHelper::getValue($sourceSchemaInfo, 'ENGINE')) {
             if (ArrayHelper::getValue($targetSchemaInfo, 'ENGINE')) {
                 if ((ArrayHelper::getValue($sourceSchemaInfo, 'ENGINE') !== ArrayHelper::getValue($targetSchemaInfo, 'ENGINE'))) {
                     $errorSummary[] = "<b>Engine</b> (" . $syncModel->tableName . ") doesn't match ";
-                    $syncModel->isEngine = false;
-                    $syncModel->isSuccess = false;
+                    $syncModel->isEngine = 0;
+                    $syncModel->isSuccess = 0;
                 }
             }
         }
 
-        if (ArrayHelper::getValue($sourceSchema, 'primaryKey')) {
+        //find Auto Increment
+        if (ArrayHelper::getValue($sourceSchema, 'columns')) {
+            $isEmptyAutoIncrement = [];
+            $autoIncrementId = '';
+            foreach (ArrayHelper::getValue($sourceSchema, 'columns') as $sourceColumn) {
+                if ($sourceColumn->autoIncrement) {
+                    foreach (ArrayHelper::getValue($targetSchema, 'columns') as $targetColumn) {
+                        if ($targetColumn->autoIncrement && $sourceColumn->name === $targetColumn->name) {
+                            $isEmptyAutoIncrement = false;
+                            $autoIncrementId = $sourceColumn->name;
+                        }
+                    }
+                }else{
+                    $isEmptyAutoIncrement = false;
+                }
+            }
+            if ($isEmptyAutoIncrement) {
+                $errorSummary[] = "<b>Auto Increment</b> (" . $autoIncrementId . ") doesn't set.";
+                $syncModel->autoIncrement = 0;
+                $syncModel->isSuccess = 0;
+            }
+        }
+
+        //Check if primary key is missing.
+        if (ArrayHelper::getValue($sourceSchema, 'primaryKey') && count(ArrayHelper::getValue($sourceSchema, 'primaryKey')) > 0) {
             $emptyPrimaryKeys = [];
             if (ArrayHelper::getValue($targetSchema, 'primaryKey')) {
                 foreach (ArrayHelper::getValue($sourceSchema, 'primaryKey') as $sourcePrimary) {
+
+
+                    $isMatch = false;
                     foreach (ArrayHelper::getValue($targetSchema, 'primaryKey') as $targetPrimary) {
-                        if ($sourcePrimary !== $targetPrimary) {
-                            $emptyPrimaryKeys[] = $sourcePrimary;
-                        }
+                        if ($sourcePrimary === $targetPrimary) { $isMatch = true; }
+                    }
+                    if(!$isMatch){
+                        $emptyPrimaryKeys[] = $sourcePrimary;
                     }
                 }
             } else {
                 $emptyPrimaryKeys = ArrayHelper::getValue($sourceSchema, 'primaryKey');
             }
 
-            $errorSummary[] = "<b>Primary Key</b> doesn't set( " . implode(", ", $emptyPrimaryKeys) . " )";
-            $syncModel->isPrimary = false;
-            $syncModel->isSuccess = false;
+            if ($emptyPrimaryKeys) {
+                $errorSummary[] = "<b>Primary Key</b> doesn't set (" . implode(", ", $emptyPrimaryKeys) . ")";
+                $syncModel->isPrimary = 0;
+                $syncModel->isSuccess = 0;
+            }
         }
 
-        dd($errorSummary);
-        dd($sourceSchema);
-        dd($targetSchema);
-        die();
+        //Check if unique column is missing.
+        $sourceUniqueColumns = $sourceConnection->schema->findUniqueIndexes($sourceSchema);
+        $targetUniqueColumns = $targetConnection->schema->findUniqueIndexes($sourceSchema);
+        if ($sourceUniqueColumns) {
+            $emptyUniqueKeys = [];
+            foreach ($sourceUniqueColumns as $sourceUniqueColumn) {
+                if ($targetUniqueColumns) {
+                    $match = false;
+                    foreach ($targetUniqueColumns as $targetUniqueColumn) {
+                        if ($targetUniqueColumn[0] === $sourceUniqueColumn[0]) {
+                            $match = true;
+                        }
+                    }
+                    if (!$match) {
+                        $emptyUniqueKeys[] = $sourceUniqueColumn[0];
+                    }
+                } else {
+                    $emptyUniqueKeys[] = $sourceUniqueColumn[0];
+                }
+            }
 
-//        //find Auto Increment
-//        if (ArrayHelper::getValue($sourceTable, 'autoIncrement') && !ArrayHelper::getValue($targetTable, 'autoIncrement')) {
-//            $syncObject->setAutoIncrement(true);
-//            $syncObject->setAutoIncrementKeys(ArrayHelper::getValue($sourceTable, 'extra.column.autoIncrement.COLUMN_NAME'));
-//            $syncObject->setErrorSummary("<b>Auto Increment</b> (" . ArrayHelper::getValue($sourceTable, 'extra.column.autoIncrement.COLUMN_NAME') . ") doesn't set. ");
+            if ($emptyUniqueKeys) {
+                $errorSummary[] = "<b>Unique Key</b> (" . implode(", ", $emptyUniqueKeys) . ") doesn't set.";
+                $syncModel->isUnique = 0;
+                $syncModel->isSuccess = 0;
+            }
+        }
+
+
+        //Check if foreign key is missing.
+        if (ArrayHelper::getValue($sourceSchema, 'foreignKeys') && count(ArrayHelper::getValue($sourceSchema, 'foreignKeys')) > 0) {
+            $emptyForeignKeys = [];
+
+            foreach (ArrayHelper::getValue($sourceSchema, 'foreignKeys') as $sourceForeignKeyName => $sourceForeignKey) {
+                if(ArrayHelper::getValue($targetSchema, 'foreignKeys')){
+                    $isMatch = false;
+                    foreach (ArrayHelper::getValue($targetSchema, 'foreignKeys') as $targetForeignKeyName => $targetForeignKey) {
+                        if ($sourceForeignKey[0] === $targetForeignKey[0]) { $isMatch = true;}
+                    }
+                    if(!$isMatch){
+                        $emptyForeignKeys[] = $sourceForeignKey[0];
+                    }
+                }else{
+                    $emptyForeignKeys[] = $sourceForeignKey[0];
+                }
+            }
+
+            if ($emptyForeignKeys) {
+                $errorSummary[] = "<b>Foreign Key</b> (" . implode(", ", $emptyForeignKeys) . ") doesn't set";
+                $syncModel->isForeign = 0;
+                $syncModel->isSuccess = 0;
+            }
+        }
+
+        // compare and find the missing columns with attributes
+        if (ArrayHelper::getValue($sourceSchema, 'columns')) {
+            foreach (ArrayHelper::getValue($sourceSchema, 'columns') as $sourceColumn) {
+                $columnCompare = [];
+                $columnMatch = false;
+                foreach (ArrayHelper::getValue($targetSchema, 'columns') as $targetColumn) {
+                    if ($sourceColumn->name === $targetColumn->name) {
+                        $columnMatch = true;
+                        $columnCompare = array_diff((array)$sourceColumn, (array)$targetColumn);
+                    }
+                }
+
+                if (!$columnMatch) {
+                    $errorSummary[] = "<b>Columns</b> (" . $sourceColumn->name . ") doesn't set.";
+                    $syncModel->isCols = 0;
+                    $syncModel->isSuccess = 0;
+                }
+
+                if ($columnCompare) {
+                    //For Column Comments missing from source to target
+                    if (ArrayHelper::getValue($columnCompare, 'comment')) {
+                        $errorSummary[] = "<b>" . $sourceColumn->name . "</b> (" . ArrayHelper::getValue($columnCompare, 'comment') . ") comment doesn't set.";
+                        $syncModel->isCols = 0;
+                        $syncModel->isSuccess = 0;
+                    }
+                    if (ArrayHelper::getValue($columnCompare, 'dbType')) {
+                        $errorSummary[] = "<b>" . $sourceColumn->name . "</b> (" . ArrayHelper::getValue($columnCompare, 'dbType') . ") doesn't matched.";
+                        $syncModel->isCols = 0;
+                        $syncModel->isSuccess = 0;
+                    }
+                }
+            }
+        }
+
+//        if ($sourceSchema->fullName === 'role') {
+//            dd($errorSummary);
+//            dd($sourceSchema);
+//            dd($targetSchema);
+//            //die();
 //        }
-//
-//        //check unique columns
-//        if (ArrayHelper::getValue($sourceTable, 'unique')) {
-//            $sourceUniqueInfo = ArrayHelper::getValue($sourceTable, 'extra.column.unique');
-//            $destinationUniqueInfo = ArrayHelper::getValue($targetTable, 'extra.column.unique');
-//            if (ArrayHelper::getValue($targetTable, 'unique')) {
-//                $uniqueMissingCols = [];
-//                foreach ($sourceUniqueInfo as $srcColumn) {
-//                    $isFound = false;
-//                    foreach ($destinationUniqueInfo as $desColumn) {
-//                        if ($desColumn['COLUMN_NAME'] === $srcColumn['COLUMN_NAME']) {
-//                            $isFound = true;
-//                        }
-//                    }
-//                    if (!$isFound) {
-//                        $uniqueMissingCols[] = $srcColumn['COLUMN_NAME'];
-//                    }
-//                }
-//                if ($uniqueMissingCols) {
-//                    $syncObject->setUnique(true);
-//                    $syncObject->setUniqueKeys($uniqueMissingCols);
-//                    $syncObject->setError(true);
-//                    $syncObject->setErrorSummary("<b>Unique Key</b> ( " . implode(", ", $uniqueMissingCols) . " ) doesn't set. ");
-//                }
-//            } else {
-//                $uniqueColumns = [];
-//                foreach ($sourceUniqueInfo as $column) {
-//                    $uniqueColumns[] = $column['COLUMN_NAME'];
-//                }
-//                $syncObject->setUnique(true);
-//                $syncObject->setUniqueKeys($uniqueColumns);
-//                $syncObject->setError(true);
-//                $syncObject->setErrorSummary("<b>Unique Key</b> ( " . implode(", ", $uniqueColumns) . " ) doesn't set. ");
-//            }
-//        }
-//
-//        if (ArrayHelper::getValue($sourceTable, 'foreign')) {
-//            $sourceForeignInfo = ArrayHelper::getValue($sourceTable, 'extra.column.foreign');
-//            $destinationForeignInfo = ArrayHelper::getValue($targetTable, 'extra.column.foreign');
-//            if (ArrayHelper::getValue($targetTable, 'foreign')) {
-//                $foreignMissingCols = [];
-//                foreach ($sourceForeignInfo as $srcColumn) {
-//                    $isFound = false;
-//                    foreach ($destinationForeignInfo as $desColumn) {
-//                        if (ArrayHelper::getValue($srcColumn, 'foreign_key') === ArrayHelper::getValue($desColumn, 'foreign_key')) {
-//                            $isFound = true;
-//                        }
-//                    }
-//                    if (!$isFound) {
-//                        $foreignMissingCols[] = ArrayHelper::getValue($srcColumn, 'foreign_key');
-//                    }
-//                }
-//                if ($foreignMissingCols) {
-//                    $syncObject->setForeign(true);
-//                    $syncObject->setUniqueKeys($foreignMissingCols);
-//                    $syncObject->setError(true);
-//                    $syncObject->setErrorSummary("<b>Foreign Key</b> ( " . implode(", ", $foreignMissingCols) . " ) doesn't set. ");
-//                }
-//            } else {
-//                $foreignColumns = [];
-//                foreach ($sourceForeignInfo as $column) {
-//                    $foreignColumns[] = ArrayHelper::getValue($column, 'foreign_key');
-//                }
-//                $syncObject->setForeign(true);
-//                $syncObject->setForeignKeys($foreignColumns);
-//                $syncObject->setError(true);
-//                $syncObject->setErrorSummary("<b>Foreign Key</b> ( " . implode(", ", $foreignColumns) . " ) doesn't set. ");
-//            }
-//        }
-//
-//        if (ArrayHelper::getValue($sourceTable, 'index')) {
-//            $sourceIndexCols = ArrayHelper::getValue($sourceTable, 'extra.column.index');
-//            $targetIndexCols = ArrayHelper::getValue($targetTable, 'extra.column.index');
-//
-//            if (ArrayHelper::getValue($targetTable, 'index') && $targetIndexCols) {
-//                $IndexMissingCols = [];
-//                foreach ($sourceIndexCols as $sourceIndexCol) {
-//                    $isFound = false;
-//                    foreach ($targetIndexCols as $targetColumn) {
-//                        if ($targetColumn['COLUMN_NAME'] === $sourceIndexCol['COLUMN_NAME']) {
-//                            $isFound = true;
-//                        }
-//                    }
-//                    if (!$isFound) {
-//                        $IndexMissingCols[] = $sourceIndexCol['COLUMN_NAME'];
-//                    }
-//                }
-//
-//                if ($IndexMissingCols) {
-//                    $syncObject->setIndex(true);
-//                    $syncObject->setIndexKeys($IndexMissingCols ?: []);
-//                    $syncObject->setError(true);
-//                    $syncObject->setErrorSummary("<b>Index Key</b> ( " . implode(", ", $IndexMissingCols) . " ) doesn't set. ");
-//                }
-//            } else {
-//                $indexColumns = [];
-//                foreach ($sourceIndexCols as $sourceIndexColumn) {
-//                    $indexColumns[] = $sourceIndexColumn['COLUMN_NAME'];
-//                }
-//                $syncObject->setIndex(true);
-//                $syncObject->setIndexKeys($indexColumns ?: []);
-//                $syncObject->setError(true);
-//                $syncObject->setErrorSummary("<b>Index Key</b> ( " . implode(", ", $indexColumns) . " ) doesn't set. ");
-//            }
-//        }
-//
+
+
+        $syncModel->errorSummary = Json::encode($errorSummary);
+        if (!$syncModel->save()) {
+            dd($syncModel->getErrors());
+        }
+
+
 //        if (ArrayHelper::getValue($sourceTable, 'extra.column.total') !== ArrayHelper::getValue($targetTable, 'extra.column.total')) {
 //            $syncObject->setCol(true);
 //            $syncObject->setNumberOfCols(ArrayHelper::getValue($sourceTable, 'extra.column.total'));
@@ -373,40 +392,68 @@ class SyncUtility
 //        }
         //["<b>Index Key</b> ( status ) doesn't set. ","<b>Columns</b> doesn't match, original ( 4 ) Diff: ( 1 )","<b> - Absent </b> ( status )","<b>Column</b> <u>name</u> attributes erros:",["&ensp;Comment doesn't match, original (<b>Add Comments</b>) modified (<b></b>)"]]
 
-        //dd($syncObject);
-        //die($syncObject->getAutoIncrementKeys());
     }
 
-    public static function queue()
+    public static function queue(int $limit)
     {
-        $limit = 1;
+        try {
+            echo "\n=== Queue Call......\n";
+            $syncModels = SyncTable::find()->where(['status' => SyncTable::STATUS_TABLE_META_QUEUE])->limit($limit ?: 5)->all();
+            if($syncModels){
+                foreach ($syncModels as $syncModel) {
+                    /** @var SyncTable $syncModel */
 
-        $syncModels = SyncTable::find()->where(['status' => SyncTable::STATUS_TABLE_META_QUEUE])->limit($limit ?: 5)->all();
-        foreach ($syncModels as $syncModel) {
-            /** @var SyncTable $syncModel */
-            $sourceConnection = DynamicConnection::getConnection($syncModel->source->configuration, $syncModel->source->dbname);
-            $targetConnection = DynamicConnection::getConnection($syncModel->target->configuration, $syncModel->target->dbname);
-            $sourceSchema = $sourceConnection->schema->getTableSchema($syncModel->tableName);
+                    echo "\nTable ".$syncModel->tableName." \n";
 
-            if ($sourceSchema) {
-                $targetSchema = $targetConnection->schema->getTableSchema($syncModel->tableName);
-                $sourceSchemaInfo = self::getTableInfo($sourceConnection, $syncModel->source->dbname, $syncModel->tableName);
-                $targetSchemaInfo = self::getTableInfo($targetConnection, $syncModel->target->dbname, $syncModel->tableName);
+                    $sourceConnection = DynamicConnection::getConnection($syncModel->source->configuration, $syncModel->source->dbname);
+                    $targetConnection = DynamicConnection::getConnection($syncModel->target->configuration, $syncModel->target->dbname);
+                    $sourceSchema = $sourceConnection->schema->getTableSchema($syncModel->tableName);
+                    if ($sourceSchema) {
+                        $targetSchema = $targetConnection->schema->getTableSchema($syncModel->tableName);
+                        $sourceSchemaInfo = self::getTableInfo($sourceConnection, $syncModel->source->dbname, $syncModel->tableName);
+                        $targetSchemaInfo = self::getTableInfo($targetConnection, $syncModel->target->dbname, $syncModel->tableName);
+                        if ($targetSchema) {
+                            self::singularSync($syncModel, $sourceConnection, $targetConnection, $sourceSchema, $targetSchema, $sourceSchemaInfo, $targetSchemaInfo);
+                        } else {
+                            $syncModel->isSuccess = 0;
+                            $syncModel->extra = Json::encode(['schema' => $sourceSchemaInfo, 'extra' => $sourceSchemaInfo]);
+                            $syncModel->status = SyncTable::STATUS_SCHEMA_COMPLETED;
+                            $syncModel->errorSummary = Json::encode(["<b>" . $syncModel->tableName . "</b> table doesn't exist."]);
+                            if (!$syncModel->save()) {
+                                if($sourceSchema->fullName=='flight_airlines'){
+                                    dd('source',$sourceSchema);
+                                    dd('target', $targetSchema);
+                                    echo Json::encode($syncModel->getErrors());
+                                    die("error");
+                                }
 
-                if ($targetSchema) {
-                    self::singularSync($syncModel, $sourceSchema, $targetSchema, $sourceSchemaInfo, $targetSchemaInfo);
-                } else {
-                    $syncModel->isSuccess = false;
-                    $syncModel->extra = ['schema' => $sourceSchemaInfo, 'extra' => $sourceSchemaInfo];
-                    $syncModel->errorSummary = Json::encode(["<b>" . $syncModel->tableName . "</b> table doesn't exist."]);
-                    if ($syncModel->save()) {
-                        return true;
-                        //TODO create another Queue.
+
+                                echo Json::encode($syncModel->getErrors());
+                            }else{
+                                if($sourceSchema->fullName=='flight_airlines'){
+                                    dd('source',$sourceSchema);
+                                    dd('target', $targetSchema);
+                                    echo Json::encode($syncModel->getErrors());
+                                    die("save");
+                                }
+                            }
+                        }
                     }
                 }
-            }
 
+                echo "Normal Queue Create\n";
+                Yii::$app->queue->delay(5)->push(new TableMetaQueueJob());
+                $sourceConnection->close();
+                $targetConnection->close();
+                Yii::$app->db->close();
+
+                echo "\nNew Queue added.\n";
+            }
+        }catch (Exception $e) {
+            echo "exception: ".$e->getMessage();
+            Yii::error($e->getMessage(), 'queue');
+            echo "Exception Queue Create\n";
+            Yii::$app->queue->delay(5)->push(new TableMetaQueueJob());
         }
-        die();
     }
 }

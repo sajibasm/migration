@@ -1,12 +1,18 @@
 <?php
 
+
+use yii\mutex\MysqlMutex;
+use yii\queue\db\Queue;
+use yii\queue\ExecEvent;
+
+
 $params = require __DIR__ . '/params.php';
 $db = require __DIR__ . '/db.php';
 
 $config = [
     'id' => 'basic-console',
     'basePath' => dirname(__DIR__),
-    'bootstrap' => ['log'],
+    'bootstrap' => ['log', 'queue'],
     'controllerNamespace' => 'app\commands',
     'aliases' => [
         '@bower' => '@vendor/bower-asset',
@@ -14,6 +20,18 @@ $config = [
         '@tests' => '@app/tests',
     ],
     'components' => [
+        'queue' => [
+            'class' => Queue::class,
+            'db' => $db, // DB connection component or its config
+            'tableName' => '{{%queue}}', // Table name
+            'ttr' => 2 * 60, // Max time for anything job handling
+            'attempts' => 1,
+            'channel' => 'default', // Queue channel key
+            'mutex' => MysqlMutex::class, // Mutex used to sync queries
+            'on afterError' => function (ExecEvent $event) {
+               echo $event->error;
+            },
+        ],
         'cache' => [
             'class' => 'yii\caching\FileCache',
         ],

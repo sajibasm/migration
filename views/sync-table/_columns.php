@@ -116,7 +116,7 @@ return [
 
             'view' => function ($url, $model) {
                 if ($model->status !== SyncTable::STATUS_TABLE_META_QUEUE) {
-                    return Html::a('<span class="bx bx-show"></span>', Url::to(['view', 'id' => $model->uuid]), [
+                    return Html::a('<span class="bx bx-show"></span>', Url::to(['view', 'id' => $model->id]), [
                         'class' => 'btn btn-soft-primary btn-sm waves-effect waves-light',
                         'data-pjax' => 0,
                         'data-bs-toggle' => "tooltip",
@@ -128,7 +128,7 @@ return [
 
             'update' => function ($url, $model) {
                 if ($model->status !== SyncTable::STATUS_TABLE_META_QUEUE) {
-                    return Html::a('<span class="dripicons-document-edit"></span>', Url::to(['update', 'id' => $model->uuid]), [
+                    return Html::a('<span class="dripicons-document-edit"></span>', Url::to(['update', 'id' => $model->id]), [
                         'class' => 'btn btn-soft-warning btn-sm waves-effect waves-light',
                         'data-pjax' => 0,
                         'data-bs-toggle' => "tooltip",

@@ -3,6 +3,7 @@
 namespace app\controllers;
 
 use app\components\SyncUtility;
+use app\components\TableMetaQueueJob;
 use app\models\SyncTable;
 use app\models\SyncTableSearch;
 use Yii;
@@ -83,6 +84,7 @@ class SyncTableController extends Controller
         if ($this->request->isPost) {
             if ($model->load($this->request->post())) {
                 if (SyncUtility::saveTableMetaQueue($model->source, $model->target)) {
+                    Yii::$app->queue->push(new TableMetaQueueJob());
                     Yii::$app->getSession()->setFlash('success', 'Table meta queue has been created successfully');
                 } else {
                     Yii::$app->getSession()->setFlash('error', 'Unable to create able meta queue');
@@ -101,7 +103,7 @@ class SyncTableController extends Controller
     public function actionQueue()
     {
 
-        SyncUtility::queue();
+        SyncUtility::queue(10);
 
     }
 

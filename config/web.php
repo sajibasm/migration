@@ -1,17 +1,34 @@
 <?php
 
+
+use yii\mutex\MysqlMutex;
+use yii\queue\db\Queue;
+use yii\queue\ExecEvent;
+
 $params = require __DIR__ . '/params.php';
 $db = require __DIR__ . '/db.php';
 
 $config = [
     'id' => 'basic',
     'basePath' => dirname(__DIR__),
-    'bootstrap' => ['log'],
+    'bootstrap' => ['log', 'queue'],
     'aliases' => [
         '@bower' => '@vendor/bower-asset',
         '@npm' => '@vendor/npm-asset',
     ],
     'components' => [
+        'queue' => [
+            'class' => Queue::class,
+            'db' => $db,
+            'tableName' => '{{%queue}}',
+            'ttr' => 2 * 60, // Max time for anything job handling
+            'attempts' => 1,
+            'channel' => 'default',
+            'mutex' => MysqlMutex::class,
+            'on afterError' => function (ExecEvent $event) {
+                dd($event);
+            },
+        ],
         'request' => [
             // !!! insert a secret key in the following (if it is empty) - this is required by cookie validation
             'cookieValidationKey' => 'meo1DJ1o0hBmfECIODRBGDvUJyDAGnD8',
@@ -37,7 +54,7 @@ $config = [
             'targets' => [
                 [
                     'class' => 'yii\log\FileTarget',
-                    'levels' => ['error', 'warning'],
+                    'levels' => ['error', 'warning', 'info', 'warning', 'trace'],
                 ],
             ],
         ],
