@@ -22,7 +22,7 @@ use Yii;
 class SyncConfig extends \yii\db\ActiveRecord
 {
     const TYPE_SOURCE = 1;
-    const TYPE_DESTINATION = 2;
+    const TYPE_TARGET = 2;
 
     const DB_TYPE = [
         1 => 'mysql',
@@ -32,7 +32,7 @@ class SyncConfig extends \yii\db\ActiveRecord
     ];
     const TYPE = [
         self::TYPE_SOURCE => 'Source',
-        self::TYPE_DESTINATION => 'Target',
+        self::TYPE_TARGET => 'Target',
     ];
     const STATUS = [
         0 => 'Inactive',

@@ -4,13 +4,18 @@ namespace app\controllers;
 
 use app\components\SyncUtility;
 use app\components\TableMetaQueueJob;
+use app\jobs\StructureJob;
+use app\models\SyncConfig;
+use app\models\SyncHostDb;
 use app\models\SyncTable;
 use app\models\SyncTableSearch;
 use Yii;
 use yii\filters\AccessControl;
+use yii\helpers\ArrayHelper;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\filters\VerbFilter;
+use yii\web\Response;
 
 /**
  * SyncTableController implements the CRUD actions for SyncTable model.
@@ -73,10 +78,29 @@ class SyncTableController extends Controller
     }
 
 
+    public function actionDatabase($type){
+        Yii::$app->response->format = Response::FORMAT_JSON;
+        $out = [];
+        if (isset($_POST['depdrop_parents'])) {
+            $parents = $_POST['depdrop_parents'];
+            if ($parents != null) {
+                $type = $parents[0];
+                $models = SyncHostDb::find()->where(['type' => $type])->orderBy('dbname')->all();
+                foreach ($models as $model) {
+                    $out[] = ['id'=>$model->id, 'name'=>$model->dbname];
+                }
+
+                return ['output'=>$out, 'selected'=>''];
+            }
+        }
+        return ['output'=>'', 'selected'=>''];
+
+    }
+
     /**
      * Creates a new SyncTable model.
      * If creation is successful, the browser will be redirected to the 'view' page.
-     * @return string|\yii\web\Response
+     * @return string|Response
      */
     public function actionCreate()
     {
@@ -84,7 +108,7 @@ class SyncTableController extends Controller
         if ($this->request->isPost) {
             if ($model->load($this->request->post())) {
                 if (SyncUtility::saveTableMetaQueue($model->source, $model->target)) {
-                    Yii::$app->queue->push(new TableMetaQueueJob());
+                    Yii::$app->queue->push(new StructureJob(['limit'=>10]));
                     Yii::$app->getSession()->setFlash('success', 'Table meta queue has been created successfully');
                 } else {
                     Yii::$app->getSession()->setFlash('error', 'Unable to create able meta queue');
@@ -102,9 +126,7 @@ class SyncTableController extends Controller
 
     public function actionQueue()
     {
-
         SyncUtility::queue(10);
-
     }
 
 
@@ -112,7 +134,7 @@ class SyncTableController extends Controller
      * Updates an existing SyncTable model.
      * If update is successful, the browser will be redirected to the 'view' page.
      * @param int $id ID
-     * @return string|\yii\web\Response
+     * @return string|Response
      * @throws NotFoundHttpException if the model cannot be found
      */
     public function actionUpdate($id)
@@ -132,7 +154,7 @@ class SyncTableController extends Controller
      * Deletes an existing SyncTable model.
      * If deletion is successful, the browser will be redirected to the 'index' page.
      * @param int $id ID
-     * @return \yii\web\Response
+     * @return Response
      * @throws NotFoundHttpException if the model cannot be found
      */
     public function actionDelete($id)

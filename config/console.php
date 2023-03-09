@@ -19,7 +19,23 @@ $config = [
         '@npm'   => '@vendor/npm-asset',
         '@tests' => '@app/tests',
     ],
+
+    'controllerMap' => [
+        'migrate' => [
+            'class' => 'yii\console\controllers\MigrateController',
+            'migrationPath' => null, // disable non-namespaced migrations if app\migrations is listed below
+            'migrationNamespaces' => [
+                'yii\queue\db\migrations',
+                'app\migrations', // Common migrations for the whole application
+                //'module\migrations', // Migrations for the specific project's module
+                //'some\extension\migrations', // Migrations for the specific extension
+            ],
+        ],
+    ],
+
     'components' => [
+
+
         'queue' => [
             'class' => Queue::class,
             'db' => $db, // DB connection component or its config
@@ -66,6 +82,9 @@ if (YII_ENV_DEV) {
     $config['bootstrap'][] = 'debug';
     $config['modules']['debug'] = [
         'class' => 'yii\debug\Module',
+        'panels' => [
+            'queue' => \yii\queue\debug\Panel::class,
+        ],
         // uncomment the following to add your IP if you are not connecting from localhost.
         //'allowedIPs' => ['127.0.0.1', '::1'],
     ];

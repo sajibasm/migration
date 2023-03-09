@@ -1,6 +1,8 @@
 <?php
 
+namespace app\migrations;
 use yii\db\Migration;
+
 
 /**
  * Class m230221_142136_syncTable

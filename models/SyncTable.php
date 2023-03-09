@@ -31,6 +31,8 @@ use Yii;
  */
 class SyncTable extends \yii\db\ActiveRecord
 {
+    public $sourceHost;
+    public $targetHost;
     const STATUS_TABLE_META_QUEUE  = 0;
     const STATUS_TABLE_META_COMPLETED  = 1;
     const STATUS_SCHEMA_QUEUE  = 2;
@@ -78,8 +80,10 @@ class SyncTable extends \yii\db\ActiveRecord
     {
         return [
             'id' => Yii::t('app', 'ID'),
+            'sourceHost' => Yii::t('app', 'Source Host'),
+            'targetHost' => Yii::t('app', 'Target Host'),
             'sourceId' => Yii::t('app', 'Source'),
-            'targetId' => Yii::t('app', 'Destination'),
+            'targetId' => Yii::t('app', 'Target'),
             'tableName' => Yii::t('app', 'Table'),
             'isEngine' => Yii::t('app', 'Engine'),
             'autoIncrement' => Yii::t('app', 'AI'),
