@@ -10,20 +10,22 @@ use Yii;
 use yii\helpers\Json;
 
 /**
- * Class StructureJob.
+ * Class SchemeInfoJob.
  */
-class StructureJob extends \yii\base\BaseObject implements \yii\queue\RetryableJobInterface
+class SchemeInfoJob extends \yii\base\BaseObject implements \yii\queue\RetryableJobInterface
 {
     public $table;
 
     public $limit;
+
+    public $init_time;
 
     /**
      * @inheritdoc
      */
     public function execute($queue)
     {
-        SyncUtility::queue($this->limit);
+        SyncUtility::schemaQueue($this->limit, $this->init_time);
     }
 
     /**

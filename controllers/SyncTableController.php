@@ -4,7 +4,7 @@ namespace app\controllers;
 
 use app\components\SyncUtility;
 use app\components\TableMetaQueueJob;
-use app\jobs\StructureJob;
+use app\jobs\SchemeInfoJob;
 use app\models\SyncConfig;
 use app\models\SyncHostDb;
 use app\models\SyncTable;
@@ -108,7 +108,7 @@ class SyncTableController extends Controller
         if ($this->request->isPost) {
             if ($model->load($this->request->post())) {
                 if (SyncUtility::saveTableMetaQueue($model->source, $model->target)) {
-                    Yii::$app->queue->push(new StructureJob(['limit'=>10]));
+                    Yii::$app->queue->push(new SchemeInfoJob(['limit' => 20, 'init_time'=> microtime(true)]));
                     Yii::$app->getSession()->setFlash('success', 'Table meta queue has been created successfully');
                 } else {
                     Yii::$app->getSession()->setFlash('error', 'Unable to create able meta queue');
@@ -126,7 +126,8 @@ class SyncTableController extends Controller
 
     public function actionQueue()
     {
-        SyncUtility::queue(10);
+        //SyncUtility::queue(10);
+        Yii::$app->queue->push(new SchemeInfoJob(['limit' => 20, 'init_time'=> microtime(true)]));
     }
 
 

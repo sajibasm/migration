@@ -21,7 +21,7 @@ class Schema
     public function __construct($schema)
     {
         if(is_object($schema)){
-            $this->setSchemaName($schema->schemaName);
+            $this->schemaName = $schema->schemaName;
             $this->name = $schema->name;
             $this->fullName = $schema->fullName;
             $this->primaryKey = $schema->primaryKey;
@@ -32,14 +32,6 @@ class Schema
         }
     }
 
-
-    /**
-     * @param mixed $schemaName
-     */
-    public function setSchemaName($schemaName): void
-    {
-        $this->schemaName = $schemaName;
-    }
 
     /**
      * @return mixed
