@@ -2,7 +2,7 @@
 
 namespace app\controllers;
 
-use app\components\SyncUtility;
+use app\components\SchemaInfo;
 use app\models\SyncConfig;
 use app\models\SyncConfigSearch;
 use Yii;
@@ -98,7 +98,7 @@ class SyncConfigController extends Controller
         if (Yii::$app->request->isAjax) {
             \Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
             try {
-                $numberOfRecordSaved = SyncUtility::getHostToDatabase($id);
+                $numberOfRecordSaved = SchemaInfo::getHostToDatabase($id);
                 if ($numberOfRecordSaved) {
                     return ['success'=>true, 'records'=>$numberOfRecordSaved];
                 } else {

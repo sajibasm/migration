@@ -1,5 +1,6 @@
 <?php
 
+use app\models\SyncTable;
 use yii\helpers\Html;
 use yii\widgets\DetailView;
 
@@ -27,9 +28,14 @@ use yii\widgets\DetailView;
 //            ],
             [
                 'attribute' => 'errorSummary',
-                'format'=>'raw',
-                'value'=> function ($model) {
-                   return $model->errorSummary !=="null"?implode("<br>", \yii\helpers\Json::decode($model->errorSummary)):null;
+                'format' => 'raw',
+                'value' => function ($model) {
+                    if ($model->status === SyncTable::STATUS_SCHEMA_COMPLETED) {
+                        if (!$model->isSuccess) {
+                            return implode("<br>", \yii\helpers\Json::decode($model->errorSummary));
+                        }
+                        return "Everything seems to be ok.";
+                    }
                 },
             ],
         ],

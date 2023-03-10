@@ -15,7 +15,7 @@ use yii\helpers\ArrayHelper;
 use yii\helpers\Json;
 
 
-class SyncUtility
+class SchemaInfo
 {
     public static function getHostToDatabase($id)
     {
@@ -45,13 +45,13 @@ class SyncUtility
         }
     }
 
-    protected function getEngine( Connection &$connection, string $database, $table, $clearCache = false)
+    protected function getEngine(Connection &$connection, string $database, $table, $clearCache = false)
     {
         if ($clearCache) {
             return Yii::$app->getCache()->flush();
         }
 
-        $key = md5(trim($table)."_engine_info".$database);
+        $key = md5(trim($table) . "_engine_info" . $database);
         $infoSchemaData = Yii::$app->getCache()->get($key);
         if ($infoSchemaData === false) {
             //echo "\nEngine Data from SQL\n";
@@ -61,36 +61,36 @@ class SyncUtility
                 if ($row['TABLE_NAME'] === $table) {
                     $infoSchemaData = $row;
                 }
-                Yii::$app->getCache()->set( md5(trim($row['TABLE_NAME']) ."_engine_info".$database), $row, 180);
+                Yii::$app->getCache()->set(md5(trim($row['TABLE_NAME']) . "_engine_info" . $database), $row, 180);
             }
-        }else{
+        } else {
             //echo "\nEngine Data from Cache\n";
         }
 
         return new Engine($infoSchemaData);
     }
 
-    protected function getIndex( Connection &$connection, string $database, $table, $clearCache = false)
+    protected function getIndex(Connection &$connection, string $database, $table, $clearCache = false)
     {
         if ($clearCache) {
             return Yii::$app->getCache()->flush();
         }
 
-        $key = md5(trim($table)."_index_info_cache" .  $database);
-        $infoSchemaData = Yii::$app->getCache()->get($key)?:[];
+        $key = md5(trim($table) . "_index_info_cache" . $database);
+        $infoSchemaData = Yii::$app->getCache()->get($key) ?: [];
         if (empty($infoSchemaData)) {
             //echo "\nIndex Data from SQL\n";
             $schemaData = $connection->createCommand("SELECT DISTINCT TABLE_NAME, INDEX_NAME FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = '${database}';")->queryAll();
             foreach ($schemaData as $row) {
-                if ($row['TABLE_NAME'] === $table && $row['INDEX_NAME']!=='PRIMARY') {
+                if ($row['TABLE_NAME'] === $table && $row['INDEX_NAME'] !== 'PRIMARY') {
                     $infoSchemaData[] = $row['INDEX_NAME'];
                 }
-                Yii::$app->getCache()->set(md5(trim($row['TABLE_NAME'])."_index_info_cache" .  $database), $row, 180);
+                Yii::$app->getCache()->set(md5(trim($row['TABLE_NAME']) . "_index_info_cache" . $database), $row, 180);
             }
-        }else{
+        } else {
             //echo "\nIndex Data from Cache\n";
         }
-       return  $infoSchemaData;
+        return $infoSchemaData;
     }
 
 
@@ -112,9 +112,9 @@ class SyncUtility
         echo "..";
         $schema = new Schema($sourceOrTargetSchema);
         echo "..";
-        $schema->setEngine(self::getEngine($connection, $database,$table, false));
+        $schema->setEngine(self::getEngine($connection, $database, $table, false));
         echo "..";
-        $schema->setIndex(self::getIndex($connection, $database,$table, false));
+        $schema->setIndex(self::getIndex($connection, $database, $table, false));
         echo "..";
         return $schema;
     }
@@ -174,13 +174,13 @@ class SyncUtility
             $syncModel->isCols = 1;
             $syncModel->isRows = 1;
             $syncModel->isSuccess = 1;
-            $syncModel->extra = Json::encode($sourceSchema);
+            $syncModel->extra = Json::encode(['source'=>$sourceSchema, 'target'=>$targetSchema]);
             $syncModel->status = SyncTable::STATUS_SCHEMA_COMPLETED;
 
             //Check Engine type
             if (ArrayHelper::getValue($sourceSchema, 'engine')) {
                 if (ArrayHelper::getValue($targetSchema, 'engine')) {
-                    if($sourceSchema->engine->name!==$targetSchema->engine->name){
+                    if ($sourceSchema->engine->name !== $targetSchema->engine->name) {
                         $errorSummary[] = "<b>Engine</b> (" . $sourceSchema->engine->name . ") doesn't match ";
                         $syncModel->isEngine = 0;
                         $syncModel->isSuccess = 0;
@@ -191,7 +191,7 @@ class SyncUtility
             //check table Collation
             if (ArrayHelper::getValue($sourceSchema, 'engine')) {
                 if (ArrayHelper::getValue($targetSchema, 'engine')) {
-                    if($sourceSchema->engine->tableCollation!==$targetSchema->engine->tableCollation){
+                    if ($sourceSchema->engine->tableCollation !== $targetSchema->engine->tableCollation) {
                         $errorSummary[] = "<b>Engine Collation</b> (" . $sourceSchema->engine->tableCollation . ") doesn't match ";
                         $syncModel->isEngine = 0;
                         $syncModel->isSuccess = 0;
@@ -385,10 +385,10 @@ class SyncUtility
 
     public static function getTotalTimeConsumed($starttime, $endtime)
     {
-        $duration = $endtime-$starttime;
-        $hours = (int)($duration/60/60);
-        $minutes = (int)($duration/60)-$hours*60;
-        $seconds = (int)$duration-$hours*60*60-$minutes*60;
+        $duration = $endtime - $starttime;
+        $hours = (int)($duration / 60 / 60);
+        $minutes = (int)($duration / 60) - $hours * 60;
+        $seconds = (int)$duration - $hours * 60 * 60 - $minutes * 60;
         echo "\n########################################################\n";
         echo "# Total Time consumed Hours: ${hours} Minutes: ${minutes} Seconds: ${seconds}  #\n";
         echo "#######################################################\n";
@@ -402,62 +402,59 @@ class SyncUtility
             $syncTableModels = SyncTable::find()->where(['status' => SyncTable::STATUS_TABLE_META_QUEUE])->limit($limit ?: 5)->all();
             if ($syncTableModels) {
                 foreach ($syncTableModels as $syncTableModel) {
+                    /** @var SyncTable $syncTableModel */
+                    echo "\nTable " . $syncTableModel->tableName . " \n";
+                    echo "..";
+                    $sourceConnection = DynamicConnection::getConnection($syncTableModel->source->configuration, $syncTableModel->source->dbname);
+                    echo "..";
+                    $targetConnection = DynamicConnection::getConnection($syncTableModel->target->configuration, $syncTableModel->target->dbname);
+                    echo "..";
+                    $sourceCoreSchema = $sourceConnection->schema->getTableSchema($syncTableModel->tableName);
+                    echo "..";
+                    if ($sourceCoreSchema) {
+                        echo "..";
+                        $targetCoreSchema = $targetConnection->schema->getTableSchema($syncTableModel->tableName);
+                        echo "..";
+                        //echo  $syncTableModel->source->dbname.'\n';
+                        //echo  $syncTableModel->target->dbname.'\n';
+                        //echo "\n Step 1 \n";
+                        $sourceSchema = self::getTableInfo($sourceCoreSchema, $sourceConnection, $syncTableModel->source->dbname, $syncTableModel->tableName);
+                        echo "..";
+                        //echo "\n Step 2 \n";
+                        $targetSchema = self::getTableInfo($targetCoreSchema, $targetConnection, $syncTableModel->target->dbname, $syncTableModel->tableName);
+                        echo "..";
+                        //echo "\n Step 3 \n";
 
-                    //if($syncTableModel->tableName === 'admin_user'){
-                        /** @var SyncTable $syncTableModel */
-                        echo "\nTable " . $syncTableModel->tableName . " \n";
-                        echo "..";
-                        $sourceConnection = DynamicConnection::getConnection($syncTableModel->source->configuration, $syncTableModel->source->dbname);
-                        echo "..";
-                        $targetConnection = DynamicConnection::getConnection($syncTableModel->target->configuration, $syncTableModel->target->dbname);
-                        echo "..";
-                        $sourceCoreSchema = $sourceConnection->schema->getTableSchema($syncTableModel->tableName);
-                        echo "..";
-                        if ($sourceCoreSchema) {
+                        if ($targetCoreSchema) {
                             echo "..";
-                            $targetCoreSchema = $targetConnection->schema->getTableSchema($syncTableModel->tableName);
+                            self::singularTableInfo($syncTableModel, $sourceConnection, $targetConnection, $sourceSchema, $targetSchema);
                             echo "..";
-                            //echo  $syncTableModel->source->dbname.'\n';
-                            //echo  $syncTableModel->target->dbname.'\n';
-                            //echo "\n Step 1 \n";
-                            $sourceSchema = self::getTableInfo($sourceCoreSchema, $sourceConnection, $syncTableModel->source->dbname, $syncTableModel->tableName);
-                            echo "..";
-                            //echo "\n Step 2 \n";
-                            $targetSchema = self::getTableInfo($targetCoreSchema, $targetConnection, $syncTableModel->target->dbname, $syncTableModel->tableName);
-                            echo "..";
-                            //echo "\n Step 3 \n";
-
-                            if ($targetCoreSchema) {
-                                echo "..";
-                                self::singularTableInfo($syncTableModel, $sourceConnection, $targetConnection, $sourceSchema, $targetSchema);
-                                echo "..";
-                            } else {
-                                $syncTableModel->isSuccess = 0;
-                                $syncTableModel->extra = Json::encode($sourceSchema);
-                                $syncTableModel->status = SyncTable::STATUS_SCHEMA_COMPLETED;
-                                $syncTableModel->errorSummary = Json::encode(["<b>" . $syncTableModel->tableName . "</b> table doesn't exist."]);
-                                if (!$syncTableModel->save()) {
-                                    echo Json::encode($syncTableModel->getErrors());
-                                }
-                                echo "..";
+                        } else {
+                            $syncTableModel->isSuccess = 0;
+                            $syncTableModel->extra = Json::encode(['source'=>$sourceSchema, 'target'=>[]]);
+                            $syncTableModel->status = SyncTable::STATUS_SCHEMA_COMPLETED;
+                            $syncTableModel->errorSummary = Json::encode(["<b>" . $syncTableModel->tableName . "</b> table doesn't exist."]);
+                            if (!$syncTableModel->save()) {
+                                echo Json::encode($syncTableModel->getErrors());
                             }
+                            echo "..";
                         }
-                    //}
+                    }
                 }
                 echo "......\n";
                 echo "\n Normal Queue Create with limit 20 \n";
                 //self::getTotalTimeConsumed( $beginTime, microtime(true) );
-                Yii::$app->queue->push(new SchemeInfoJob(['limit' => 20, 'init_time'=>$beginTime]));
+                Yii::$app->queue->push(new SchemeInfoJob(['limit' => 20, 'init_time' => $beginTime]));
             }
 
-            if(!$syncTableModels){
+            if (!$syncTableModels) {
                 echo "\n All table info has been pulled. \n";
-                self::getTotalTimeConsumed( $beginTime, microtime(true) );
+                self::getTotalTimeConsumed($beginTime, microtime(true));
             }
 
 
         } catch (Exception $e) {
-            echo "\n Exception: " . Json::encode($e->getMessage()."\n");
+            echo "\n Exception: " . Json::encode($e->getMessage() . "\n");
             Yii::error(Json::encode($e->getMessage()), 'queue');
             echo "\n Exception Queue Create with limit 20 \n";
             //Yii::$app->queue->push(new SchemeInfoJob(['limit' => 20, 'init_time'=>$beginTime]));

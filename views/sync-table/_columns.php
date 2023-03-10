@@ -6,6 +6,8 @@ use kartik\icons\Icon;
 use yii\helpers\Html;
 use yii\helpers\Url;
 
+/** @var app\models\SyncTable $model */
+
 return [
     ['class' => 'kartik\grid\SerialColumn'],
     [
@@ -93,7 +95,7 @@ return [
     'createdAt',
     [
         'class' => 'kartik\grid\ActionColumn',
-        'template' => ' {view} {update} {sync}',
+        'template' => ' {view} {sync}',
         'options' => ['style' => 'width: 130px;'],
         'hAlign' => 'center',
         'header' => 'Action',
@@ -102,40 +104,21 @@ return [
 //        },
         'buttons' => [
             'sync' => function ($url, $model) {
-                if ($model->status !== SyncTable::STATUS_TABLE_META_QUEUE) {
-                    return Html::a(Icon::show('cloud'), Url::to(['view', 'id' => $model->id]), [
-                        'class' => 'btn btn-soft-info btn-sm waves-effect waves-light approveModal',
+                if ($model->status=== SyncTable::STATUS_SCHEMA_COMPLETED && !$model->isSuccess) {
+                    return Html::a(Icon::show('cloud'), Url::to(['schema-sync', 'id' => $model->id]), [
+                        'class' => 'btn btn-outline-secondary',
                         'data-pjax' => 0,
-                        'data-bs-toggle' => "tooltip",
-                        'data-bs-placement' => "top",
-                        'data-bs-original-title' => "Approve",
+                         'title' =>'Schema Sync'
                     ]);
                 }
             },
-
 
             'view' => function ($url, $model) {
-                if ($model->status !== SyncTable::STATUS_TABLE_META_QUEUE) {
-                    return Html::a('<span class="bx bx-show"></span>', Url::to(['view', 'id' => $model->id]), [
-                        'class' => 'btn btn-soft-primary btn-sm waves-effect waves-light',
+                    return Html::a(Icon::show('eye'), Url::to(['view', 'id' => $model->id]), [
+                        'class' => 'btn btn-outline-success',
                         'data-pjax' => 0,
-                        'data-bs-toggle' => "tooltip",
-                        'data-bs-placement' => "top",
-                        'data-bs-original-title' => "View",
+                        'title' =>'Details'
                     ]);
-                }
-            },
-
-            'update' => function ($url, $model) {
-                if ($model->status !== SyncTable::STATUS_TABLE_META_QUEUE) {
-                    return Html::a('<span class="dripicons-document-edit"></span>', Url::to(['update', 'id' => $model->id]), [
-                        'class' => 'btn btn-soft-warning btn-sm waves-effect waves-light',
-                        'data-pjax' => 0,
-                        'data-bs-toggle' => "tooltip",
-                        'data-bs-placement' => "top",
-                        'data-bs-original-title' => "Update",
-                    ]);
-                }
             },
         ],
     ],

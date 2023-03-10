@@ -2,7 +2,7 @@
 
 namespace app\controllers;
 
-use app\components\SyncUtility;
+use app\components\SchemaInfo;
 use app\components\TableMetaQueueJob;
 use app\jobs\SchemeInfoJob;
 use app\models\SyncConfig;
@@ -84,8 +84,8 @@ class SyncTableController extends Controller
         if (isset($_POST['depdrop_parents'])) {
             $parents = $_POST['depdrop_parents'];
             if ($parents != null) {
-                $type = $parents[0];
-                $models = SyncHostDb::find()->where(['type' => $type])->orderBy('dbname')->all();
+                $config = $parents[0];
+                $models = SyncHostDb::find()->where(['type' => $type, 'config'=>$config])->orderBy('dbname')->all();
                 foreach ($models as $model) {
                     $out[] = ['id'=>$model->id, 'name'=>$model->dbname];
                 }
@@ -107,7 +107,7 @@ class SyncTableController extends Controller
         $model = new SyncTable();
         if ($this->request->isPost) {
             if ($model->load($this->request->post())) {
-                if (SyncUtility::saveTableMetaQueue($model->source, $model->target)) {
+                if (SchemaInfo::saveTableMetaQueue($model->source, $model->target)) {
                     Yii::$app->queue->push(new SchemeInfoJob(['limit' => 20, 'init_time'=> microtime(true)]));
                     Yii::$app->getSession()->setFlash('success', 'Table meta queue has been created successfully');
                 } else {
@@ -124,9 +124,17 @@ class SyncTableController extends Controller
         ]);
     }
 
-    public function actionQueue()
+
+    public function actionSchemaSync()
     {
-        //SyncUtility::queue(10);
+        //SchemaInfo::queue(10);
+        Yii::$app->queue->push(new SchemeInfoJob(['limit' => 20, 'init_time'=> microtime(true)]));
+    }
+
+
+    public function actionSchemaQueue()
+    {
+        //SchemaInfo::queue(10);
         Yii::$app->queue->push(new SchemeInfoJob(['limit' => 20, 'init_time'=> microtime(true)]));
     }
 
