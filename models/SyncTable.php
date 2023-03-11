@@ -182,13 +182,4 @@ class SyncTable extends \yii\db\ActiveRecord
     {
         return $this->hasOne(SyncHostDb::className(), ['id' => 'targetId']);
     }
-
-    public static function setErrorSummary(SyncTable &$model, string $error)
-    {
-        if(!empty($model->errorSummary)){
-
-        }
-    }
-    
-    
 }

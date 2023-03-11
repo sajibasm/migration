@@ -78,17 +78,16 @@ class SchemaInfo
 
         $key = md5(trim($table) . "_index_info_cache" . $database);
         $infoSchemaData = Yii::$app->getCache()->get($key) ?: [];
+
         if (empty($infoSchemaData)) {
             //echo "\nIndex Data from SQL\n";
-            $schemaData = $connection->createCommand("SELECT DISTINCT TABLE_NAME, INDEX_NAME FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = '${database}';")->queryAll();
+            $schemaData = $connection->createCommand("SELECT DISTINCT TABLE_NAME, INDEX_NAME, COLUMN_NAME FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = '${database}';")->queryAll();
             foreach ($schemaData as $row) {
                 if ($row['TABLE_NAME'] === $table && $row['INDEX_NAME'] !== 'PRIMARY') {
-                    $infoSchemaData[] = $row['INDEX_NAME'];
+                    $infoSchemaData[] = ['index' => $row['INDEX_NAME'], 'key' => $row['COLUMN_NAME']];
                 }
-                Yii::$app->getCache()->set(md5(trim($row['TABLE_NAME']) . "_index_info_cache" . $database), $row, 180);
             }
-        } else {
-            //echo "\nIndex Data from Cache\n";
+            Yii::$app->getCache()->set(md5(trim($row['TABLE_NAME']) . "_index_info_cache" . $database), $infoSchemaData, 180);
         }
         return $infoSchemaData;
     }
@@ -100,7 +99,7 @@ class SchemaInfo
      * @param string $database
      * @param $table
      * @param $clearCache
-     * @return Schema|bool
+     * @return SchemaObject|bool
      * @throws \yii\db\Exception
      */
     public static function getTableInfo(&$sourceOrTargetSchema, Connection &$connection, string $database, $table, $clearCache = false)
@@ -109,8 +108,9 @@ class SchemaInfo
             echo "..";
             return Yii::$app->getCache()->flush();
         }
+
         echo "..";
-        $schema = new Schema($sourceOrTargetSchema);
+        $schema = new SchemaObject($sourceOrTargetSchema);
         echo "..";
         $schema->setEngine(self::getEngine($connection, $database, $table, false));
         echo "..";
@@ -148,6 +148,8 @@ class SchemaInfo
                 ];
             }
 
+            Yii::$app->getCache()->flush();
+
             return Yii::$app->db->createCommand()->batchInsert(SyncTable::tableName(), [
                 'id', 'sourceId', 'targetID', 'tableName', 'isEngine', 'autoIncrement',
                 'isPrimary', 'isForeign', 'isUnique', 'isIndex', 'isCols', 'isRows', 'extra',
@@ -160,7 +162,7 @@ class SchemaInfo
         }
     }
 
-    public static function singularTableInfo(SyncTable &$syncModel, Connection $sourceConnection, Connection $targetConnection, Schema $sourceSchema, Schema $targetSchema)
+    public static function singularTableInfo(SyncTable &$syncModel, Connection $sourceConnection, Connection $targetConnection, SchemaObject $sourceSchema, SchemaObject $targetSchema)
     {
         try {
             $errorSummary = [];
@@ -174,7 +176,7 @@ class SchemaInfo
             $syncModel->isCols = 1;
             $syncModel->isRows = 1;
             $syncModel->isSuccess = 1;
-            $syncModel->extra = Json::encode(['source'=>$sourceSchema, 'target'=>$targetSchema]);
+            $syncModel->extra = Json::encode(['source' => $sourceSchema, 'target' => $targetSchema]);
             $syncModel->status = SyncTable::STATUS_SCHEMA_COMPLETED;
 
             //Check Engine type
@@ -383,7 +385,7 @@ class SchemaInfo
         }
     }
 
-    public static function getTotalTimeConsumed($starttime, $endtime)
+    private static function getTotalTimeConsumed($starttime, $endtime)
     {
         $duration = $endtime - $starttime;
         $hours = (int)($duration / 60 / 60);
@@ -431,7 +433,7 @@ class SchemaInfo
                             echo "..";
                         } else {
                             $syncTableModel->isSuccess = 0;
-                            $syncTableModel->extra = Json::encode(['source'=>$sourceSchema, 'target'=>[]]);
+                            $syncTableModel->extra = Json::encode(['source' => $sourceSchema, 'target' => []]);
                             $syncTableModel->status = SyncTable::STATUS_SCHEMA_COMPLETED;
                             $syncTableModel->errorSummary = Json::encode(["<b>" . $syncTableModel->tableName . "</b> table doesn't exist."]);
                             if (!$syncTableModel->save()) {

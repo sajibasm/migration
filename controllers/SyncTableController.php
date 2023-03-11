@@ -3,6 +3,7 @@
 namespace app\controllers;
 
 use app\components\SchemaInfo;
+use app\components\SchemaSync;
 use app\components\TableMetaQueueJob;
 use app\jobs\SchemeInfoJob;
 use app\models\SyncConfig;
@@ -125,10 +126,15 @@ class SyncTableController extends Controller
     }
 
 
-    public function actionSchemaSync()
+    public function actionSchemaSync($id)
     {
         //SchemaInfo::queue(10);
-        Yii::$app->queue->push(new SchemeInfoJob(['limit' => 20, 'init_time'=> microtime(true)]));
+
+        if($id){
+            SchemaSync::schema($id);
+        }
+
+        //Yii::$app->queue->push(new SchemeInfoJob(['limit' => 20, 'init_time'=> microtime(true)]));
     }
 
 

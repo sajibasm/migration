@@ -2,7 +2,7 @@
 
 namespace app\components;
 
-class Schema
+class SchemaObject
 {
 
     public $schemaName;
@@ -63,7 +63,7 @@ class Schema
     /**
      * @param mixed $index
      */
-    public function setIndex($index): void
+    public function setIndex(array $index): void
     {
         $this->index = $index;
     }
