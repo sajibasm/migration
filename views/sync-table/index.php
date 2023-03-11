@@ -16,6 +16,37 @@ $this->params['breadcrumbs'][] = $this->title;
 Icon::map($this);
 FontAwesomeAsset::register($this);
 ?>
+
+<?php
+$js = <<<JS
+    $(document).ready(function(){
+
+        function checkStatus() {
+            $(".sync").off().on("click", function(e){
+                e.preventDefault();
+                var url = $(this).attr("data-url");
+
+                $.pjax.defaults.timeout = false;
+                $.ajax({
+                    url     : url,
+                    type   : "post",
+                    dataType: 'json',
+                    success: function (response) {
+                        // do something
+                    }, error  : function () {
+                        // do nothing
+                    }
+                });
+            });
+        }
+
+        checkStatus();
+    });
+JS;
+
+$this->registerJs($js);
+?>
+
 <div class="sync-table-index">
     <div class="table-responsive">
         <?= GridView::widget([

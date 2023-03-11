@@ -106,9 +106,10 @@ return [
             'sync' => function ($url, $model) {
                 if ($model->status=== SyncTable::STATUS_SCHEMA_COMPLETED && !$model->isSuccess) {
                     return Html::a(Icon::show('cloud'), Url::to(['schema-sync', 'id' => $model->id]), [
-                        'class' => 'btn btn-outline-secondary',
+                        'class' => 'btn btn-outline-secondary sync',
                         'data-pjax' => 0,
-                         'title' =>'Schema Sync'
+                        'title' =>'Schema Sync',
+                        'data-url'=>Url::to(['sync-table/schema-sync', 'id'=> $model->id], true),
                     ]);
                 }
             },

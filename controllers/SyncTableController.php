@@ -109,6 +109,7 @@ class SyncTableController extends Controller
         if ($this->request->isPost) {
             if ($model->load($this->request->post())) {
                 if (SchemaInfo::saveTableMetaQueue($model->source, $model->target)) {
+                    Yii::$app->getCache()->flush();
                     Yii::$app->queue->push(new SchemeInfoJob(['limit' => 20, 'init_time'=> microtime(true)]));
                     Yii::$app->getSession()->setFlash('success', 'Table meta queue has been created successfully');
                 } else {
@@ -140,8 +141,8 @@ class SyncTableController extends Controller
 
     public function actionSchemaQueue()
     {
-        //SchemaInfo::queue(10);
-        Yii::$app->queue->push(new SchemeInfoJob(['limit' => 20, 'init_time'=> microtime(true)]));
+        SchemaInfo::schemaQueue(10, microtime(true));
+        //Yii::$app->queue->push(new SchemeInfoJob(['limit' => 20, 'init_time'=> microtime(true)]));
     }
 
 

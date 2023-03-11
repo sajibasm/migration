@@ -13,28 +13,47 @@ use yii\helpers\Json;
 class SchemaSync
 {
 
-    private static function alterColumn($tableName, $schema, $after)
+    private static function alterColumn($tableName, $sourceSchemaObject, $targetSchemaObject,  $afterSchema)
     {
 
-        $sql = "ALTER TABLE TABLE_NAME ADD COLUMN `COLUMN_NAME` DATATYPE NULL_VALUE DEFAULT_VALUE AFTER `AFTER_COLUMN`;";
-        $sql = str_replace("TABLE_NAME", $tableName, $sql);
-        $sql = str_replace("COLUMN_NAME", $schema->name, $sql);
-        $sql = str_replace("AFTER_COLUMN", $after->name, $sql);
-        $sql = str_replace("DATATYPE", strtoupper($schema->dbType), $sql);
 
-        if ($schema->allowNull) {
-            $sql = str_replace("NULL_VALUE", "NOT NULL", $sql);
-        } else {
-            $sql = str_replace("NULL_VALUE", "", $sql);
+        $sql = "ALTER TABLE TABLE_NAME ADD `COLUMN_NAME` DATATYPE";
+        $sql = str_replace("TABLE_NAME", "`".$tableName."`", $sql);
+        $sql = str_replace("COLUMN_NAME", $sourceSchemaObject->name, $sql);
+
+        if(str_contains($sourceSchemaObject->dbType, 'enum')){
+            $dataType = substr($sourceSchemaObject->dbType, 0, 4);
+            $default = substr($sourceSchemaObject->dbType, 4, strlen($sourceSchemaObject->dbType));
+            $sql = str_replace("DATATYPE", strtoupper($dataType).$default, $sql);
+        }else{
+            $sql = str_replace("DATATYPE", strtoupper($sourceSchemaObject->dbType), $sql);
         }
 
-        if ($schema->defaultValue) {
-            $sql = str_replace("DEFAULT_VALUE", "DEFAULT `" . $schema->defaultValue . "`", $sql);
-        } else {
-            $sql = str_replace("DEFAULT_VALUE", "", $sql);
+
+        if ($sourceSchemaObject->defaultValue) {
+            if(in_array($sourceSchemaObject->dbType, ['date', 'time', 'year', 'timestamp', 'datetime'])) {
+                $sql.=" NOT NULL DEFAULT ".$sourceSchemaObject->defaultValue;
+            }else{
+                $sql.=" NOT NULL DEFAULT '".$sourceSchemaObject->defaultValue."'";
+            }
+
+        } elseif ($sourceSchemaObject->allowNull){
+            $sql.=" NOT NULL";
+        }
+        else {
+            $sql.=" ";
         }
 
-        return $sql;
+        if($afterSchema){
+            $sql.=" AFTER `".$afterSchema->name."`";
+        }
+
+        if($sourceSchemaObject->comment!==$targetSchemaObject->comment) {
+            $sql.=" COMMENT '".$sourceSchemaObject->comment."'";
+        }
+
+
+        return $sql.";";
     }
 
     private static function generateSchema(SyncTable $model, Connection $sourceConnection, Connection $targetConnection, &$sourceSchema, &$targetSchema)
@@ -59,6 +78,8 @@ class SchemaSync
                 $alterQuery = [];
                 $alterQuery[] = "SET FOREIGN_KEY_CHECKS=0;";
 
+                $commonIndex = [];
+
                 //Check Engine type
                 if (ArrayHelper::getValue($sourceSchema, 'engine')) {
                     if (ArrayHelper::getValue($targetSchema, 'engine')) {
@@ -71,60 +92,81 @@ class SchemaSync
                 //check table Collation
                 if (ArrayHelper::getValue($sourceSchema, 'engine')) {
                     if (ArrayHelper::getValue($targetSchema, 'engine')) {
-                        if ($sourceSchema->engine->tableCollation !== $targetSchema->tableCollation) {
+                        if ($sourceSchema->engine->tableCollation !== $targetSchema->engine->tableCollation) {
                             $alterQuery[] = "ALTER TABLE `${tableName}` COLLATE utf8mb4_0900_ai_ci;";
                         }
                     }
                 }
 
-                //find Auto Increment
+                // Find Missing Columns
                 if (ArrayHelper::getValue($sourceSchema, 'columns')) {
+                    $afterColumn = [];
+                    $targetSchemaObject = null;
 
-                    $autoIncrementKey = '';
-                    $autoIncrementId = false;
-
-                    foreach (ArrayHelper::getValue($sourceSchema, 'columns') as $sourceColumn) {
-                        if ($sourceColumn->autoIncrement) {
-                            $autoIncrementKey = $sourceColumn->name;
-                            foreach (ArrayHelper::getValue($targetSchema, 'columns') as $targetColumn) {
-                                if ($targetColumn->autoIncrement) {
-                                    if ($sourceColumn->name !== $targetColumn->name) {
-                                        $autoIncrementId = true;
-                                        $alterQuery[] = "ALTER TABLE `${tableName}` CHANGE  `" . $targetColumn->name . "` `" . $targetColumn->name . "` INT NOT NULL;";
-                                        $alterQuery[] = "ALTER TABLE `${tableName}` CHANGE `" . $sourceColumn->name . "` `" . $sourceColumn->name . "` INT NOT NULL AUTO_INCREMENT; ";
-                                    }
-                                }
+                    foreach (ArrayHelper::getValue($sourceSchema, 'columns') as $sourceKey => $sourceColumn) {
+                        $columnMatch = false;
+                        foreach (ArrayHelper::getValue($targetSchema, 'columns') as $targetColumn) {
+                            if ($sourceColumn->name === $targetColumn->name) {
+                                $columnMatch = true;
+                                $targetSchemaObject = $targetColumn;
                             }
                         }
-                    }
 
-                    if (!$autoIncrementId) {
-                        $alterQuery[] = "ALTER TABLE `${tableName}` CHANGE `${autoIncrementKey}` `${autoIncrementKey}` INT NOT NULL AUTO_INCREMENT; ";
+                        if (!$columnMatch) {
+                            $alterQuery[] = self::alterColumn($tableName, $sourceColumn, $targetSchemaObject, $afterColumn);
+                        }
+
+                        $afterColumn = $sourceColumn;
                     }
                 }
-
 
                 //Check if primary key is missing.
                 if (ArrayHelper::getValue($sourceSchema, 'primaryKey') && count(ArrayHelper::getValue($targetSchema, 'primaryKey')) > 0) {
                     $emptyIndexKeys = [];
                     if (ArrayHelper::getValue($targetSchema, 'primaryKey')) {
                         foreach (ArrayHelper::getValue($sourceSchema, 'primaryKey') as $sourcePrimary) {
+
                             $isMatch = false;
                             foreach (ArrayHelper::getValue($targetSchema, 'primaryKey') as $targetPrimary) {
                                 if ($sourcePrimary === $targetPrimary) {
                                     $isMatch = true;
+                                    break;
                                 }
                             }
+
                             if (!$isMatch) {
                                 $emptyIndexKeys[] = $sourcePrimary;
                             }
                         }
-                    } else {
-                        $emptyIndexKeys = ArrayHelper::getValue($sourceSchema, 'primaryKey');
+                    }
+                    if ($emptyIndexKeys) {
+                        $commonIndex = $emptyIndexKeys;
+                        $alterQuery[] = "ALTER TABLE `${tableName}` ADD PRIMARY KEY(" . implode(",", $emptyIndexKeys) . ");";
+                    }
+                }
+
+                //find Auto Increment
+                if (ArrayHelper::getValue($sourceSchema, 'columns')) {
+                    $hasAutoIncrement = false;
+                    $autoIncrementKey = '';
+                    $isFoundAutoIncrementId = false;
+                    foreach (ArrayHelper::getValue($sourceSchema, 'columns') as $sourceColumn) {
+                        if ($sourceColumn->autoIncrement) {
+                            $hasAutoIncrement = true;
+                            $autoIncrementKey = $sourceColumn->name;
+                            foreach (ArrayHelper::getValue($targetSchema, 'columns') as $targetColumn) {
+                                if ($targetColumn->autoIncrement) {
+                                    if ($sourceColumn->name === $targetColumn->name) {
+                                        $isFoundAutoIncrementId = true;
+                                    }
+                                }
+                            }
+                            break;
+                        }
                     }
 
-                    if ($emptyIndexKeys) {
-                        $alterQuery[] = "ALTER TABLE `${tableName}` ADD PRIMARY KEY(" . implode(",", $emptyIndexKeys) . ");";
+                    if ($hasAutoIncrement && !$isFoundAutoIncrementId) {
+                        $alterQuery[] = "ALTER TABLE `${tableName}` CHANGE `${autoIncrementKey}` `${autoIncrementKey}` INT NOT NULL AUTO_INCREMENT;";
                     }
                 }
 
@@ -144,14 +186,15 @@ class SchemaSync
                                 }
                             }
                             if (!$match) {
+                                $commonIndex[] = $sourceUniqueColumn[0];
                                 $alterQuery[] = "ALTER TABLE `${tableName}` ADD CONSTRAINT `${constraint}` UNIQUE(" . $sourceUniqueColumn[0] . ");";
                             }
                         } else {
+                            $commonIndex[] = $sourceUniqueColumn[0];
                             $alterQuery[] = "ALTER TABLE `${tableName}` ADD CONSTRAINT `${constraint}` UNIQUE(" . $sourceUniqueColumn[0] . ");";
                         }
                     }
                 }
-
 
                 //Check if foreign key is missing.
                 if (ArrayHelper::getValue($sourceSchema, 'foreignKeys') && count(ArrayHelper::getValue($targetSchema, 'foreignKeys')) > 0) {
@@ -166,66 +209,21 @@ class SchemaSync
                                 }
                             }
                             if (!$isMatch) {
+                                $commonIndex[] = $sourceForeignKey[0];
                                 $emptyForeignKeys[] = $sourceForeignKey[0];
                             }
                         } else {
+                            $commonIndex[] = $sourceForeignKey[0];
                             $emptyForeignKeys[] = $sourceForeignKey[0];
                         }
                     }
 
-                    if ($emptyForeignKeys) {
-                        $errorSummary[] = "<b>Foreign Key</b> (" . implode(", ", $emptyForeignKeys) . ") doesn't set";
-                        $model->isForeign = 0;
-                        $model->isSuccess = 0;
+                    if (!empty($emptyForeignKeys)) {
+                        //$errorSummary[] = "<b>Foreign Key</b> (" . implode(", ", $emptyForeignKeys) . ") doesn't set";
+                        //TODO
                     }
                 }
 
-                // compare and find the missing columns with attributes
-                if (ArrayHelper::getValue($sourceSchema, 'columns')) {
-
-                    $afterColumn = [];
-
-
-                    foreach (ArrayHelper::getValue($sourceSchema, 'columns') as $sourceColumn) {
-                        $columnCompare = [];
-                        $columnMatch = false;
-
-                        foreach (ArrayHelper::getValue($targetSchema, 'columns') as $targetColumn) {
-                            if ($sourceColumn->name === $targetColumn->name) {
-                                $columnMatch = true;
-                                if (is_array($sourceColumn) && !is_array($targetColumn) && (count($sourceColumn) > 0 && count($targetColumn) > 0)) {
-                                    try {
-                                        $columnCompare = array_diff($sourceColumn, $targetColumn);
-                                    } catch (\Exception $e) {
-                                        echo $e->getMessage() . 'Got an error';
-                                    }
-                                }
-                            }
-                        }
-
-                        if (!$columnMatch) {
-                            self::alterColumn($tableName, $sourceColumn, $afterColumn);
-                            die("not found column");
-                        }
-
-                        if ($columnCompare) {
-
-                            //To Check Column Comments missing from source to target
-                            if (ArrayHelper::getValue($columnCompare, 'comment')) {
-                                $errorSummary[] = "<b>" . $sourceColumn->name . "</b> (" . ArrayHelper::getValue($columnCompare, 'comment') . ") comment doesn't set.";
-                                //ALTER TABLE `category` CHANGE `name` `name` VARCHAR(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT 'Test';
-                            }
-
-                            //To Check Column dataType.
-                            if (ArrayHelper::getValue($columnCompare, 'dbType')) {
-
-                            }
-                        }
-
-                        $afterColumn = $sourceColumn;
-
-                    }
-                }
 
                 //Check if index key is missing.
                 if (ArrayHelper::getValue($sourceSchema, 'index') && count(ArrayHelper::getValue($targetSchema, 'index')) > 0) {
@@ -240,26 +238,27 @@ class SchemaSync
                                     }
                                 }
                                 if (!$isMatch) {
-                                    $alterQuery[] = "ALTER TABLE `${tableName}` ADD INDEX `" . $sourceIndex['index'] . "` (`" . $sourceIndex['key'] . "`);";
+
+                                    if( !in_array( $sourceIndex['index'] ,$commonIndex ) ) {
+                                        $alterQuery[] = "ALTER TABLE `${tableName}` ADD INDEX `" . $sourceIndex['index'] . "` (`" . $sourceIndex['key'] . "`);";
+                                    }
                                 }
                             } else {
-                                $alterQuery[] = "ALTER TABLE `${tableName}` ADD INDEX `" . $sourceIndex['index'] . "` (`" . $sourceIndex['key'] . "`);";
+                                if( !in_array( $sourceIndex['index'] ,$commonIndex ) ) {
+                                    $alterQuery[] = "ALTER TABLE `${tableName}` ADD INDEX `" . $sourceIndex['index'] . "` (`" . $sourceIndex['key'] . "`);";
+                                }
                             }
                         }
                     }
                 }
 
-
                 $alterQuery[] = "SET FOREIGN_KEY_CHECKS=1;";
 
                 if ($alterQuery) {
-
-                    dd(implode(" ", $alterQuery));
-                    die();
-
-                    $targetConnection->createCommand($createSql)->execute();
+                    //dd(implode(" \n", $alterQuery));die();
+                    $targetConnection->createCommand(implode(" \n", $alterQuery))->execute();
                     if ($model->save()) {
-                        echo "${tableName} has been created \n";
+                        echo "${tableName} has been modified \n";
                         Yii::$app->queue->push(new SchemeInfoJob(['limit' => 20, 'init_time' => microtime(true)]));
                     }
                 }
@@ -284,6 +283,7 @@ class SchemaSync
     {
         try {
             echo "\n=== Queue Call......\n";
+            Yii::$app->getCache()->flush();
             /** @var SyncTable $syncTableModel */
             $syncTableModel = SyncTable::findOne($id);
             if ($syncTableModel) {

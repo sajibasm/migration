@@ -203,22 +203,22 @@ class SchemaInfo
 
             //find Auto Increment
             if (ArrayHelper::getValue($sourceSchema, 'columns')) {
-                $isEmptyAutoIncrement = [];
-                $autoIncrementId = '';
+                $hasAutoIncrement = false;
+                $isFoundAutoIncrement = false;
+                $autoIncrementKey = '';
                 foreach (ArrayHelper::getValue($sourceSchema, 'columns') as $sourceColumn) {
                     if ($sourceColumn->autoIncrement) {
+                        $hasAutoIncrement  = true;
+                        $autoIncrementKey = $sourceColumn->name;
                         foreach (ArrayHelper::getValue($targetSchema, 'columns') as $targetColumn) {
                             if ($targetColumn->autoIncrement && $sourceColumn->name === $targetColumn->name) {
-                                $isEmptyAutoIncrement = false;
-                                $autoIncrementId = $sourceColumn->name;
+                                $isFoundAutoIncrement = true;
                             }
                         }
-                    } else {
-                        $isEmptyAutoIncrement = false;
                     }
                 }
-                if ($isEmptyAutoIncrement) {
-                    $errorSummary[] = "<b>Auto Increment</b> (" . $autoIncrementId . ") doesn't set.";
+                if($hasAutoIncrement && !$isFoundAutoIncrement){
+                    $errorSummary[] = "<b>Auto Increment</b> (" . $autoIncrementKey . ") doesn't set.";
                     $syncModel->autoIncrement = 0;
                     $syncModel->isSuccess = 0;
                 }
@@ -226,7 +226,7 @@ class SchemaInfo
 
             //Check if primary key is missing.
             if (ArrayHelper::getValue($sourceSchema, 'primaryKey') && count(ArrayHelper::getValue($targetSchema, 'primaryKey')) > 0) {
-                $emptyPrimaryKeys = [];
+                $emptyIndexKeys = [];
                 if (ArrayHelper::getValue($targetSchema, 'primaryKey')) {
                     foreach (ArrayHelper::getValue($sourceSchema, 'primaryKey') as $sourcePrimary) {
                         $isMatch = false;
@@ -236,15 +236,15 @@ class SchemaInfo
                             }
                         }
                         if (!$isMatch) {
-                            $emptyPrimaryKeys[] = $sourcePrimary;
+                            $emptyIndexKeys[] = $sourcePrimary;
                         }
                     }
                 } else {
-                    $emptyPrimaryKeys = ArrayHelper::getValue($sourceSchema, 'primaryKey');
+                    $emptyIndexKeys = ArrayHelper::getValue($sourceSchema, 'primaryKey');
                 }
 
-                if ($emptyPrimaryKeys) {
-                    $errorSummary[] = "<b>Primary Key</b> doesn't set (" . implode(", ", $emptyPrimaryKeys) . ")";
+                if ($emptyIndexKeys) {
+                    $errorSummary[] = "<b>Primary Key</b> doesn't set (" . implode(", ", $emptyIndexKeys) . ")";
                     $syncModel->isPrimary = 0;
                     $syncModel->isSuccess = 0;
                 }
@@ -305,27 +305,35 @@ class SchemaInfo
                 }
             }
 
+
+//            if($syncModel->tableName=='user') {
+//                dd(ArrayHelper::getValue($sourceSchema, 'index') );
+//                dd(ArrayHelper::getValue($targetSchema, 'index') );
+//                die();
+//            }
+
             //Check if index key is missing.
             if (ArrayHelper::getValue($sourceSchema, 'index') && count(ArrayHelper::getValue($targetSchema, 'index')) > 0) {
-                $emptyPrimaryKeys = [];
-                if (ArrayHelper::getValue($targetSchema, 'index')) {
-                    foreach (ArrayHelper::getValue($sourceSchema, 'index') as $sourceIndex) {
+                $emptyIndexKeys = [];
+                foreach (ArrayHelper::getValue($sourceSchema, 'index') as $sourceIndex) {
+                    if (ArrayHelper::getValue($targetSchema, 'index')) {
                         $isMatch = false;
                         foreach (ArrayHelper::getValue($targetSchema, 'index') as $targetIndex) {
-                            if ($sourceIndex === $targetIndex) {
+                            if ($sourceIndex['key'] === $targetIndex['key']) {
                                 $isMatch = true;
                             }
                         }
                         if (!$isMatch) {
-                            $emptyPrimaryKeys[] = $sourceIndex;
+                            $emptyIndexKeys[] = $sourceIndex['key'];
                         }
+                    } else {
+                        $emptyIndexKeys = $sourceIndex['key'];
                     }
-                } else {
-                    $emptyPrimaryKeys = ArrayHelper::getValue($sourceSchema, 'index');
                 }
 
-                if ($emptyPrimaryKeys) {
-                    $errorSummary[] = "<b>Index Key</b> doesn't set (" . implode(", ", $emptyPrimaryKeys) . ")";
+
+                if (!empty($emptyIndexKeys)) {
+                    $errorSummary[] = "<b>Index Key</b> doesn't set (" . implode(", ", $emptyIndexKeys) . ")";
                     $syncModel->isIndex = 0;
                     $syncModel->isSuccess = 0;
                 }
@@ -355,7 +363,7 @@ class SchemaInfo
                         $syncModel->isSuccess = 0;
                     }
 
-                    if ($columnCompare) {
+                    if (!empty($columnCompare)) {
                         //For Column Comments missing from source to target
                         if (ArrayHelper::getValue($columnCompare, 'comment')) {
                             $errorSummary[] = "<b>" . $sourceColumn->name . "</b> (" . ArrayHelper::getValue($columnCompare, 'comment') . ") comment doesn't set.";
@@ -451,6 +459,7 @@ class SchemaInfo
 
             if (!$syncTableModels) {
                 echo "\n All table info has been pulled. \n";
+                Yii::$app->getCache()->flush();
                 self::getTotalTimeConsumed($beginTime, microtime(true));
             }
 
