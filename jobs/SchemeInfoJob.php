@@ -3,7 +3,7 @@
 namespace app\jobs;
 
 use app\components\DynamicConnection;
-use app\components\SchemaInfo;
+use app\components\SchemaConflict;
 use app\models\SyncTable;
 use Exception;
 use Yii;
@@ -25,7 +25,7 @@ class SchemeInfoJob extends \yii\base\BaseObject implements \yii\queue\Retryable
      */
     public function execute($queue)
     {
-        SchemaInfo::schemaQueue($this->limit, $this->init_time);
+        SchemaConflict::createQueue($this->limit, $this->init_time);
     }
 
     /**

@@ -15,7 +15,7 @@ use yii\helpers\ArrayHelper;
 use yii\helpers\Json;
 
 
-class SchemaInfo
+class SchemaConflict
 {
     public static function getHostToDatabase($id)
     {
@@ -393,7 +393,7 @@ class SchemaInfo
     }
 
 
-    public static function schemaQueue(int $limit, int $beginTime)
+    public static function createQueue(int $limit, int $beginTime)
     {
         try {
             echo "\n=== Queue Call......\n";

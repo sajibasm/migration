@@ -10,51 +10,100 @@ use yii\db\Connection;
 use yii\helpers\ArrayHelper;
 use yii\helpers\Json;
 
-class SchemaSync
+class SchemaResolver
 {
 
-    private static function alterColumn($tableName, $sourceSchemaObject, $targetSchemaObject,  $afterSchema)
+
+    private static function alterColumn(string &$tableName, $sourceSchemas, $targetSchemas)
     {
 
 
-        $sql = "ALTER TABLE TABLE_NAME ADD `COLUMN_NAME` DATATYPE";
-        $sql = str_replace("TABLE_NAME", "`".$tableName."`", $sql);
-        $sql = str_replace("COLUMN_NAME", $sourceSchemaObject->name, $sql);
-
-        if(str_contains($sourceSchemaObject->dbType, 'enum')){
-            $dataType = substr($sourceSchemaObject->dbType, 0, 4);
-            $default = substr($sourceSchemaObject->dbType, 4, strlen($sourceSchemaObject->dbType));
-            $sql = str_replace("DATATYPE", strtoupper($dataType).$default, $sql);
-        }else{
-            $sql = str_replace("DATATYPE", strtoupper($sourceSchemaObject->dbType), $sql);
-        }
-
-
-        if ($sourceSchemaObject->defaultValue) {
-            if(in_array($sourceSchemaObject->dbType, ['date', 'time', 'year', 'timestamp', 'datetime'])) {
-                $sql.=" NOT NULL DEFAULT ".$sourceSchemaObject->defaultValue;
-            }else{
-                $sql.=" NOT NULL DEFAULT '".$sourceSchemaObject->defaultValue."'";
+        $sql = '';
+        $afterColumn = [];
+        $targetSchemaObject = null;
+        foreach ($sourceSchemas as $sourceKey => $sourceColumn) {
+            $isColumnMatch = false;
+            foreach ($targetSchemas as $targetColumn) {
+                if ($sourceColumn->name === $targetColumn->name) {
+                    $isColumnMatch = true;
+                    $targetSchemaObject = $targetColumn;
+                }
             }
 
-        } elseif ($sourceSchemaObject->allowNull){
-            $sql.=" NOT NULL";
-        }
-        else {
-            $sql.=" ";
+            if ($isColumnMatch) {
+                $sql = "ALTER TABLE `TABLE_NAME` CHANGE `COLUMN_NAME` `COLUMN_NAME` ";
+                $sql = str_replace("TABLE_NAME", $tableName, $sql);
+                $sql = str_replace("COLUMN_NAME", $sourceColumn->name, $sql);
+
+                if (str_contains($sourceColumn->dbType, 'enum')) {
+                    $dataType = substr($sourceColumn->dbType, 0, 4);
+                    $default = substr($sourceColumn->dbType, 4, strlen($sourceColumn->dbType));
+                    $sql = str_replace("DATATYPE", strtoupper($dataType) . $default, $sql);
+                } else {
+                    $sql .= strtoupper($sourceColumn->dbType) . " ";
+                }
+
+                if ($sourceColumn->defaultValue) {
+                    if (in_array($sourceColumn->dbType, ['date', 'time', 'year', 'timestamp', 'datetime'])) {
+                        $sql .= " NOT NULL DEFAULT " . $sourceColumn->defaultValue;
+                    } else {
+                        $sql .= " NOT NULL DEFAULT '" . $sourceColumn->defaultValue . "'";
+                    }
+
+                } elseif ($sourceColumn->allowNull) {
+                    $sql .= " NULL";
+                } else {
+                    $sql .= " NOT NULL";
+                }
+
+
+                if (!empty($sourceColumn->comment) && ($sourceColumn->comment !== $targetSchemaObject->comment)) {
+                    $sql .= " COMMENT '" . $sourceColumn->comment . "'";
+                }
+
+            } else {
+
+                $sql = "ALTER TABLE `TABLE_NAME` ADD `COLUMN_NAME` DATATYPE";
+                $sql = str_replace("TABLE_NAME", $tableName, $sql);
+                $sql = str_replace("COLUMN_NAME", $sourceColumn->name, $sql);
+
+                if (str_contains($sourceColumn->dbType, 'enum')) {
+                    $dataType = substr($sourceColumn->dbType, 0, 4);
+                    $default = substr($sourceColumn->dbType, 4, strlen($sourceColumn->dbType));
+                    $sql = str_replace("DATATYPE", strtoupper($dataType) . $default, $sql);
+                } else {
+                    $sql = str_replace("DATATYPE", strtoupper($sourceColumn->dbType), $sql);
+                }
+
+                if ($sourceColumn->defaultValue) {
+                    if (in_array($sourceColumn->dbType, ['date', 'time', 'year', 'timestamp', 'datetime'])) {
+                        $sql .= " NOT NULL DEFAULT " . $sourceColumn->defaultValue;
+                    } else {
+                        $sql .= " NOT NULL DEFAULT '" . $sourceColumn->defaultValue . "'";
+                    }
+
+                } elseif ($sourceColumn->allowNull) {
+                    $sql .= " ";
+                } else {
+                    $sql .= " NOT NULL";
+                }
+
+                if ($sourceColumn->comment !== $targetSchemaObject->comment) {
+                    $sql .= " COMMENT '" . $sourceColumn->comment . "'";
+                }
+
+                if ($afterColumn) {
+                    $sql .= " AFTER  '" . $sourceColumn->name . "'";
+                }
+            }
+
+            $afterColumn = $sourceColumn;
         }
 
-        if($afterSchema){
-            $sql.=" AFTER `".$afterSchema->name."`";
-        }
+        return $sql . ";";
 
-        if($sourceSchemaObject->comment!==$targetSchemaObject->comment) {
-            $sql.=" COMMENT '".$sourceSchemaObject->comment."'";
-        }
-
-
-        return $sql.";";
     }
+
 
     private static function generateSchema(SyncTable $model, Connection $sourceConnection, Connection $targetConnection, &$sourceSchema, &$targetSchema)
     {
@@ -75,10 +124,8 @@ class SchemaSync
                 }
             } else {
 
-                $alterQuery = [];
-                $alterQuery[] = "SET FOREIGN_KEY_CHECKS=0;";
-
                 $commonIndex = [];
+                $alterQuery[] = "SET FOREIGN_KEY_CHECKS=0;";
 
                 //Check Engine type
                 if (ArrayHelper::getValue($sourceSchema, 'engine')) {
@@ -98,27 +145,11 @@ class SchemaSync
                     }
                 }
 
-                // Find Missing Columns
+                // Find Missing Column Alter
                 if (ArrayHelper::getValue($sourceSchema, 'columns')) {
-                    $afterColumn = [];
-                    $targetSchemaObject = null;
-
-                    foreach (ArrayHelper::getValue($sourceSchema, 'columns') as $sourceKey => $sourceColumn) {
-                        $columnMatch = false;
-                        foreach (ArrayHelper::getValue($targetSchema, 'columns') as $targetColumn) {
-                            if ($sourceColumn->name === $targetColumn->name) {
-                                $columnMatch = true;
-                                $targetSchemaObject = $targetColumn;
-                            }
-                        }
-
-                        if (!$columnMatch) {
-                            $alterQuery[] = self::alterColumn($tableName, $sourceColumn, $targetSchemaObject, $afterColumn);
-                        }
-
-                        $afterColumn = $sourceColumn;
-                    }
+                    $alterQuery[] = self::alterColumn($tableName, ArrayHelper::getValue($sourceSchema, 'columns'), ArrayHelper::getValue($targetSchema, 'columns'));
                 }
+
 
                 //Check if primary key is missing.
                 if (ArrayHelper::getValue($sourceSchema, 'primaryKey') && count(ArrayHelper::getValue($targetSchema, 'primaryKey')) > 0) {
@@ -176,7 +207,6 @@ class SchemaSync
                 $targetUniqueColumns = $targetConnection->schema->findUniqueIndexes($targetSchema);
 
                 if ($sourceUniqueColumns) {
-                    $emptyUniqueKeys = [];
                     foreach ($sourceUniqueColumns as $constraint => $sourceUniqueColumn) {
                         if ($targetUniqueColumns) {
                             $match = false;
@@ -239,12 +269,12 @@ class SchemaSync
                                 }
                                 if (!$isMatch) {
 
-                                    if( !in_array( $sourceIndex['index'] ,$commonIndex ) ) {
+                                    if (!in_array($sourceIndex['index'], $commonIndex)) {
                                         $alterQuery[] = "ALTER TABLE `${tableName}` ADD INDEX `" . $sourceIndex['index'] . "` (`" . $sourceIndex['key'] . "`);";
                                     }
                                 }
                             } else {
-                                if( !in_array( $sourceIndex['index'] ,$commonIndex ) ) {
+                                if (!in_array($sourceIndex['index'], $commonIndex)) {
                                     $alterQuery[] = "ALTER TABLE `${tableName}` ADD INDEX `" . $sourceIndex['index'] . "` (`" . $sourceIndex['key'] . "`);";
                                 }
                             }
@@ -277,7 +307,7 @@ class SchemaSync
     }
 
 
-    public static function schema(int $id, int $beginTime)
+    public static function createQueue(int $id, int $beginTime)
     {
         try {
             echo "\n=== Queue Call......\n";
@@ -295,9 +325,9 @@ class SchemaSync
                 echo "..";
                 $targetCoreSchema = $targetConnection->schema->getTableSchema($syncTableModel->tableName);
                 echo "..";
-                $sourceSchema = SchemaInfo::getTableInfo($sourceCoreSchema, $sourceConnection, $syncTableModel->source->dbname, $syncTableModel->tableName);
+                $sourceSchema = SchemaConflict::getTableInfo($sourceCoreSchema, $sourceConnection, $syncTableModel->source->dbname, $syncTableModel->tableName);
                 echo "..";
-                $targetSchema = SchemaInfo::getTableInfo($targetCoreSchema, $targetConnection, $syncTableModel->target->dbname, $syncTableModel->tableName);
+                $targetSchema = SchemaConflict::getTableInfo($targetCoreSchema, $targetConnection, $syncTableModel->target->dbname, $syncTableModel->tableName);
                 echo "..";
                 self::generateSchema($syncTableModel, $sourceConnection, $targetConnection, $sourceSchema, $targetSchema);
                 echo "..";
