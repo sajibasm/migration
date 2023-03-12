@@ -6,18 +6,17 @@
     <br>
 </p>
 
-DBMigration is a free software tool written in PHP and Yii2 Framework, intended to handle the migration of Database
-over GUI. DBMigration supports on MySQL. 
+This is GUI based Database Migration and conflict resolver tools. It's completely
+free tool written in PHP 5.6 above and Yii2 Framework, intended to handle the migration of Database
+over GUI DBMigration supports on MySQL. 
 
 DBMigration tool can be performed view user interface, while you have options to identify to compare tow database (Primary, Unique, Index, AutoIncrement, Column, Row, Engine)
-
 
 
 REQUIREMENTS
 ------------
 
 The minimum requirement by this project that your Web server supports PHP 7.4.
-
 
 INSTALLATION
 ------------

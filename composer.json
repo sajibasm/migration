@@ -1,6 +1,6 @@
 {
-    "name": "yiisoft/yii2-app-basic",
-    "description": "Yii 2 Basic Project Template",
+    "name": "asmsajib/dbmigration",
+    "description": "DB Migration and Conflict Resolver",
     "keywords": ["yii2", "framework", "basic", "project template"],
     "homepage": "https://www.yiiframework.com/",
     "type": "project",

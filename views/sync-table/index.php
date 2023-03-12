@@ -19,29 +19,24 @@ FontAwesomeAsset::register($this);
 
 <?php
 $js = <<<JS
-    $(document).ready(function(){
-
-        function checkStatus() {
-            $(".sync").off().on("click", function(e){
-                e.preventDefault();
-                var url = $(this).attr("data-url");
-
-                $.pjax.defaults.timeout = false;
-                $.ajax({
-                    url     : url,
-                    type   : "post",
-                    dataType: 'json',
-                    success: function (response) {
-                        // do something
-                    }, error  : function () {
-                        // do nothing
-                    }
-                });
-            });
-        }
-
-        checkStatus();
+$(function() {
+    $(document).on('click', '.sync', function(e){
+        e.preventDefault();
+        var url = $(this).attr("data-url");
+        $.ajax({
+			url: url,
+			type:'POST',
+			dataType: 'json',
+			success:function(response){
+                console.log(response)
+                $.pjax.reload({container:'#sync-table'});
+                 bootbox.alert({message: 'Sync Queue has been created successfully'});   
+			}, error:  function() {
+			  
+			}
+		});
     });
+});
 JS;
 
 $this->registerJs($js);
@@ -60,7 +55,7 @@ $this->registerJs($js);
             'pjax' => true, // pjax is set to always false for this demo
             'pjaxSettings' => [
                 'options' => [
-                    'id' => 'configuration',
+                    'id' => 'sync-table',
                     'enablePushState' => false,
                 ]
             ],

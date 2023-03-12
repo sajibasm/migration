@@ -3,16 +3,13 @@
 namespace app\controllers;
 
 use app\components\SchemaInfo;
-use app\components\SchemaSync;
-use app\components\TableMetaQueueJob;
+use app\jobs\SchemaSync;
 use app\jobs\SchemeInfoJob;
-use app\models\SyncConfig;
 use app\models\SyncHostDb;
 use app\models\SyncTable;
 use app\models\SyncTableSearch;
 use Yii;
 use yii\filters\AccessControl;
-use yii\helpers\ArrayHelper;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\filters\VerbFilter;
@@ -129,18 +126,19 @@ class SyncTableController extends Controller
 
     public function actionSchemaSync($id)
     {
-        //SchemaInfo::queue(10);
-
         if($id){
-            SchemaSync::schema($id);
+            //Yii::$app->queue->push(new SchemaSync(['id' => $id, 'init_time'=> microtime(true)]));
+            //SchemaInfo::schemaQueue(10, microtime(true));
+            \app\components\SchemaSync::schema($id, microtime(true));
+            return true;
         }
-
-        //Yii::$app->queue->push(new SchemeInfoJob(['limit' => 20, 'init_time'=> microtime(true)]));
     }
 
 
     public function actionSchemaQueue()
     {
+
+
         SchemaInfo::schemaQueue(10, microtime(true));
         //Yii::$app->queue->push(new SchemeInfoJob(['limit' => 20, 'init_time'=> microtime(true)]));
     }

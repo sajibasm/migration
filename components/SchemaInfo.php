@@ -183,9 +183,8 @@ class SchemaInfo
             if (ArrayHelper::getValue($sourceSchema, 'engine')) {
                 if (ArrayHelper::getValue($targetSchema, 'engine')) {
                     if ($sourceSchema->engine->name !== $targetSchema->engine->name) {
-                        $errorSummary[] = "<b>Engine</b> (" . $sourceSchema->engine->name . ") doesn't match ";
                         $syncModel->isEngine = 0;
-                        $syncModel->isSuccess = 0;
+                        $errorSummary[] = "<b>Engine</b> (" . $sourceSchema->engine->name . ") doesn't match ";
                     }
                 }
             }
@@ -194,9 +193,8 @@ class SchemaInfo
             if (ArrayHelper::getValue($sourceSchema, 'engine')) {
                 if (ArrayHelper::getValue($targetSchema, 'engine')) {
                     if ($sourceSchema->engine->tableCollation !== $targetSchema->engine->tableCollation) {
-                        $errorSummary[] = "<b>Engine Collation</b> (" . $sourceSchema->engine->tableCollation . ") doesn't match ";
                         $syncModel->isEngine = 0;
-                        $syncModel->isSuccess = 0;
+                        $errorSummary[] = "<b>Engine Collation</b> (" . $sourceSchema->engine->tableCollation . ") doesn't match ";
                     }
                 }
             }
@@ -208,7 +206,7 @@ class SchemaInfo
                 $autoIncrementKey = '';
                 foreach (ArrayHelper::getValue($sourceSchema, 'columns') as $sourceColumn) {
                     if ($sourceColumn->autoIncrement) {
-                        $hasAutoIncrement  = true;
+                        $hasAutoIncrement = true;
                         $autoIncrementKey = $sourceColumn->name;
                         foreach (ArrayHelper::getValue($targetSchema, 'columns') as $targetColumn) {
                             if ($targetColumn->autoIncrement && $sourceColumn->name === $targetColumn->name) {
@@ -217,10 +215,9 @@ class SchemaInfo
                         }
                     }
                 }
-                if($hasAutoIncrement && !$isFoundAutoIncrement){
-                    $errorSummary[] = "<b>Auto Increment</b> (" . $autoIncrementKey . ") doesn't set.";
+                if ($hasAutoIncrement && !$isFoundAutoIncrement) {
                     $syncModel->autoIncrement = 0;
-                    $syncModel->isSuccess = 0;
+                    $errorSummary[] = "<b>Auto Increment</b> (" . $autoIncrementKey . ") doesn't set.";
                 }
             }
 
@@ -272,9 +269,8 @@ class SchemaInfo
                 }
 
                 if ($emptyUniqueKeys) {
-                    $errorSummary[] = "<b>Unique Key</b> (" . implode(", ", $emptyUniqueKeys) . ") doesn't set.";
                     $syncModel->isUnique = 0;
-                    $syncModel->isSuccess = 0;
+                    $errorSummary[] = "<b>Unique Key</b> (" . implode(", ", $emptyUniqueKeys) . ") doesn't set.";
                 }
             }
 
@@ -299,18 +295,11 @@ class SchemaInfo
                 }
 
                 if ($emptyForeignKeys) {
-                    $errorSummary[] = "<b>Foreign Key</b> (" . implode(", ", $emptyForeignKeys) . ") doesn't set";
                     $syncModel->isForeign = 0;
-                    $syncModel->isSuccess = 0;
+                    $errorSummary[] = "<b>Foreign Key</b> (" . implode(", ", $emptyForeignKeys) . ") doesn't set";
                 }
             }
 
-
-//            if($syncModel->tableName=='user') {
-//                dd(ArrayHelper::getValue($sourceSchema, 'index') );
-//                dd(ArrayHelper::getValue($targetSchema, 'index') );
-//                die();
-//            }
 
             //Check if index key is missing.
             if (ArrayHelper::getValue($sourceSchema, 'index') && count(ArrayHelper::getValue($targetSchema, 'index')) > 0) {
@@ -333,9 +322,8 @@ class SchemaInfo
 
 
                 if (!empty($emptyIndexKeys)) {
-                    $errorSummary[] = "<b>Index Key</b> doesn't set (" . implode(", ", $emptyIndexKeys) . ")";
                     $syncModel->isIndex = 0;
-                    $syncModel->isSuccess = 0;
+                    $errorSummary[] = "<b>Index Key</b> doesn't set (" . implode(", ", $emptyIndexKeys) . ")";
                 }
             }
 
@@ -347,38 +335,31 @@ class SchemaInfo
                     foreach (ArrayHelper::getValue($targetSchema, 'columns') as $targetColumn) {
                         if ($sourceColumn->name === $targetColumn->name) {
                             $columnMatch = true;
-                            if (is_array($sourceColumn) && !is_array($targetColumn) && (count($sourceColumn) > 0 && count($targetColumn) > 0)) {
-                                try {
-                                    $columnCompare = array_diff($sourceColumn, $targetColumn);
-                                } catch (\Exception $e) {
-                                    echo $e->getMessage() . 'Got an error';
-                                }
-                            }
+                            $columnCompare = $targetColumn;
                         }
                     }
 
                     if (!$columnMatch) {
-                        $errorSummary[] = "<b>Columns</b> (" . $sourceColumn->name . ") doesn't set.";
                         $syncModel->isCols = 0;
-                        $syncModel->isSuccess = 0;
-                    }
-
-                    if (!empty($columnCompare)) {
-                        //For Column Comments missing from source to target
-                        if (ArrayHelper::getValue($columnCompare, 'comment')) {
-                            $errorSummary[] = "<b>" . $sourceColumn->name . "</b> (" . ArrayHelper::getValue($columnCompare, 'comment') . ") comment doesn't set.";
+                        $errorSummary[] = "<b>Column</b> (" . $sourceColumn->name . ") doesn't set.";
+                    } else {
+                        if ($sourceColumn->allowNull !== $columnCompare->allowNull) {
                             $syncModel->isCols = 0;
-                            $syncModel->isSuccess = 0;
+                            $nulValue = $sourceColumn->allowNull ? '`Yes`' : '`No`';
+                            $errorSummary[] = "<b>Column</b> (" . $sourceColumn->name . ") Null value must set ${nulValue}";
                         }
-                        if (ArrayHelper::getValue($columnCompare, 'dbType')) {
-                            $errorSummary[] = "<b>" . $sourceColumn->name . "</b> (" . ArrayHelper::getValue($columnCompare, 'dbType') . ") doesn't matched.";
+                        if ($sourceColumn->dbType !== $columnCompare->dbType) {
                             $syncModel->isCols = 0;
-                            $syncModel->isSuccess = 0;
+                            $errorSummary[] = "<b>Column</b> (" . $sourceColumn->name . ") DataType must set `".$sourceColumn->dbType."`";
+                        }
+                        if (!empty($sourceColumn->comment) && empty($columnCompare->comment)) {
+                            $syncModel->isCols = 0;
+                            $errorSummary[] = "<b>Column</b> (" . $sourceColumn->name . ") Comment should be `".$sourceColumn->comment."`";
                         }
                     }
                 }
             }
-
+            $syncModel->isSuccess = !empty($errorSummary)?1:0;
             $syncModel->errorSummary = Json::encode($errorSummary);
 
             if (!$syncModel->save()) {

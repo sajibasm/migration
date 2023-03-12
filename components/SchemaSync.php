@@ -253,16 +253,15 @@ class SchemaSync
                 }
 
                 $alterQuery[] = "SET FOREIGN_KEY_CHECKS=1;";
+                dd(implode(" \n", $alterQuery));die();
 
                 if ($alterQuery) {
-                    //dd(implode(" \n", $alterQuery));die();
                     $targetConnection->createCommand(implode(" \n", $alterQuery))->execute();
                     if ($model->save()) {
                         echo "${tableName} has been modified \n";
                         Yii::$app->queue->push(new SchemeInfoJob(['limit' => 20, 'init_time' => microtime(true)]));
                     }
                 }
-
 
                 if (!$model->save()) {
                     dd($model->getErrors());
@@ -271,7 +270,6 @@ class SchemaSync
                 }
             }
 
-
         } catch (Exception $e) {
             echo Json::encode($e->getMessage()) . '\n';
             echo $e->getTraceAsString() . '\n';
@@ -279,7 +277,7 @@ class SchemaSync
     }
 
 
-    public static function schema(int &$id)
+    public static function schema(int $id, int $beginTime)
     {
         try {
             echo "\n=== Queue Call......\n";
@@ -305,16 +303,11 @@ class SchemaSync
                 echo "..";
             }
 
-
-            echo "......\n";
-            echo "\n Normal Queue Create with limit 20 \n";
-            //self::getTotalTimeConsumed( $beginTime, microtime(true) );
-            //Yii::$app->queue->push(new SchemeInfoJob(['limit' => 20, 'init_time' => $beginTime]));
-
+            echo "........\n";
 
             if (!$syncTableModel) {
                 echo "\n All table info has been pulled. \n";
-                //self::getTotalTimeConsumed($beginTime, microtime(true));
+                self::getTotalTimeConsumed($beginTime, microtime(true));
             }
         } catch (Exception $e) {
             echo "\n Exception: " . Json::encode($e->getMessage() . "\n");
