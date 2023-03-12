@@ -162,28 +162,27 @@ class SchemaInfo
         }
     }
 
-    public static function singularTableInfo(SyncTable &$syncModel, Connection $sourceConnection, Connection $targetConnection, SchemaObject $sourceSchema, SchemaObject $targetSchema)
+    public static function singularTableInfo(SyncTable &$syncTableModel, Connection $sourceConnection, Connection $targetConnection, SchemaObject $sourceSchema, SchemaObject $targetSchema)
     {
         try {
-            $errorSummary = [];
-            $syncModel->tableName = $sourceSchema->fullName;
-            $syncModel->isEngine = 1;
-            $syncModel->autoIncrement = 1;
-            $syncModel->isPrimary = 1;
-            $syncModel->isForeign = 1;
-            $syncModel->isUnique = 1;
-            $syncModel->isIndex = 1;
-            $syncModel->isCols = 1;
-            $syncModel->isRows = 1;
-            $syncModel->isSuccess = 1;
-            $syncModel->extra = Json::encode(['source' => $sourceSchema, 'target' => $targetSchema]);
-            $syncModel->status = SyncTable::STATUS_SCHEMA_COMPLETED;
 
+            $errorSummary = [];
+            $syncTableModel->tableName = $sourceSchema->fullName;
+            $syncTableModel->isEngine = 1;
+            $syncTableModel->autoIncrement = 1;
+            $syncTableModel->isPrimary = 1;
+            $syncTableModel->isForeign = 1;
+            $syncTableModel->isUnique = 1;
+            $syncTableModel->isIndex = 1;
+            $syncTableModel->isCols = 1;
+            $syncTableModel->isRows = 1;
+            $syncTableModel->isSuccess = 1;
             //Check Engine type
             if (ArrayHelper::getValue($sourceSchema, 'engine')) {
                 if (ArrayHelper::getValue($targetSchema, 'engine')) {
                     if ($sourceSchema->engine->name !== $targetSchema->engine->name) {
-                        $syncModel->isEngine = 0;
+                        $syncTableModel->isSuccess = 0;
+                        $syncTableModel->isEngine = 0;
                         $errorSummary[] = "<b>Engine</b> (" . $sourceSchema->engine->name . ") doesn't match ";
                     }
                 }
@@ -193,7 +192,8 @@ class SchemaInfo
             if (ArrayHelper::getValue($sourceSchema, 'engine')) {
                 if (ArrayHelper::getValue($targetSchema, 'engine')) {
                     if ($sourceSchema->engine->tableCollation !== $targetSchema->engine->tableCollation) {
-                        $syncModel->isEngine = 0;
+                        $syncTableModel->isSuccess = 0;
+                        $syncTableModel->isEngine = 0;
                         $errorSummary[] = "<b>Engine Collation</b> (" . $sourceSchema->engine->tableCollation . ") doesn't match ";
                     }
                 }
@@ -216,7 +216,8 @@ class SchemaInfo
                     }
                 }
                 if ($hasAutoIncrement && !$isFoundAutoIncrement) {
-                    $syncModel->autoIncrement = 0;
+                    $syncTableModel->isSuccess = 0;
+                    $syncTableModel->autoIncrement = 0;
                     $errorSummary[] = "<b>Auto Increment</b> (" . $autoIncrementKey . ") doesn't set.";
                 }
             }
@@ -241,9 +242,9 @@ class SchemaInfo
                 }
 
                 if ($emptyIndexKeys) {
+                    $syncTableModel->isSuccess = 0;
+                    $syncTableModel->isPrimary = 0;
                     $errorSummary[] = "<b>Primary Key</b> doesn't set (" . implode(", ", $emptyIndexKeys) . ")";
-                    $syncModel->isPrimary = 0;
-                    $syncModel->isSuccess = 0;
                 }
             }
 
@@ -269,7 +270,8 @@ class SchemaInfo
                 }
 
                 if ($emptyUniqueKeys) {
-                    $syncModel->isUnique = 0;
+                    $syncTableModel->isSuccess = 0;
+                    $syncTableModel->isUnique = 0;
                     $errorSummary[] = "<b>Unique Key</b> (" . implode(", ", $emptyUniqueKeys) . ") doesn't set.";
                 }
             }
@@ -295,7 +297,8 @@ class SchemaInfo
                 }
 
                 if ($emptyForeignKeys) {
-                    $syncModel->isForeign = 0;
+                    $syncTableModel->isSuccess = 0;
+                    $syncTableModel->isForeign = 0;
                     $errorSummary[] = "<b>Foreign Key</b> (" . implode(", ", $emptyForeignKeys) . ") doesn't set";
                 }
             }
@@ -322,7 +325,8 @@ class SchemaInfo
 
 
                 if (!empty($emptyIndexKeys)) {
-                    $syncModel->isIndex = 0;
+                    $syncTableModel->isIndex = 0;
+                    $syncTableModel->isSuccess = 0;
                     $errorSummary[] = "<b>Index Key</b> doesn't set (" . implode(", ", $emptyIndexKeys) . ")";
                 }
             }
@@ -340,32 +344,35 @@ class SchemaInfo
                     }
 
                     if (!$columnMatch) {
-                        $syncModel->isCols = 0;
+                        $syncTableModel->isSuccess = 0;
+                        $syncTableModel->isCols = 0;
                         $errorSummary[] = "<b>Column</b> (" . $sourceColumn->name . ") doesn't set.";
                     } else {
                         if ($sourceColumn->allowNull !== $columnCompare->allowNull) {
-                            $syncModel->isCols = 0;
-                            $nulValue = $sourceColumn->allowNull ? '`Yes`' : '`No`';
-                            $errorSummary[] = "<b>Column</b> (" . $sourceColumn->name . ") Null value must set ${nulValue}";
+                            $syncTableModel->isSuccess = 0;
+                            $syncTableModel->isCols = 0;
+                            $nulValue = $sourceColumn->allowNull ? 'allow `true`' : 'allow `false`';
+                            $errorSummary[] = "<b>Column</b> (" . $sourceColumn->name . ") Null value must ${nulValue}";
                         }
                         if ($sourceColumn->dbType !== $columnCompare->dbType) {
-                            $syncModel->isCols = 0;
-                            $errorSummary[] = "<b>Column</b> (" . $sourceColumn->name . ") DataType must set `".$sourceColumn->dbType."`";
+                            $syncTableModel->isSuccess = 0;
+                            $syncTableModel->isCols = 0;
+                            $errorSummary[] = "<b>Column</b> (" . $sourceColumn->name . ") DataType must set `" . $sourceColumn->dbType . "`";
                         }
                         if (!empty($sourceColumn->comment) && empty($columnCompare->comment)) {
-                            $syncModel->isCols = 0;
-                            $errorSummary[] = "<b>Column</b> (" . $sourceColumn->name . ") Comment should be `".$sourceColumn->comment."`";
+                            $syncTableModel->isSuccess = 0;
+                            $syncTableModel->isCols = 0;
+                            $errorSummary[] = "<b>Column</b> (" . $sourceColumn->name . ") Comment should be `" . $sourceColumn->comment . "`";
                         }
                     }
                 }
             }
-            $syncModel->isSuccess = !empty($errorSummary)?1:0;
-            $syncModel->errorSummary = Json::encode($errorSummary);
 
-            if (!$syncModel->save()) {
-                dd($syncModel->getErrors());
+            $syncTableModel->errorSummary = Json::encode($errorSummary);
+            if (!$syncTableModel->save()) {
+                dd($syncTableModel->getErrors());
             } else {
-                echo Json::encode($syncModel->getErrors());
+                echo Json::encode($syncTableModel->getErrors());
             }
 
         } catch (Exception $e) {
@@ -394,6 +401,17 @@ class SchemaInfo
             if ($syncTableModels) {
                 foreach ($syncTableModels as $syncTableModel) {
                     /** @var SyncTable $syncTableModel */
+                    $syncTableModel->isEngine = 0;
+                    $syncTableModel->autoIncrement = 0;
+                    $syncTableModel->isPrimary = 0;
+                    $syncTableModel->isForeign = 0;
+                    $syncTableModel->isUnique = 0;
+                    $syncTableModel->isIndex = 0;
+                    $syncTableModel->isCols = 0;
+                    $syncTableModel->isRows = 0;
+                    $syncTableModel->isSuccess = 0;
+                    $syncTableModel->status = SyncTable::STATUS_SCHEMA_COMPLETED;
+
                     echo "\nTable " . $syncTableModel->tableName . " \n";
                     echo "..";
                     $sourceConnection = DynamicConnection::getConnection($syncTableModel->source->configuration, $syncTableModel->source->dbname);
@@ -421,9 +439,7 @@ class SchemaInfo
                             self::singularTableInfo($syncTableModel, $sourceConnection, $targetConnection, $sourceSchema, $targetSchema);
                             echo "..";
                         } else {
-                            $syncTableModel->isSuccess = 0;
                             $syncTableModel->extra = Json::encode(['source' => $sourceSchema, 'target' => []]);
-                            $syncTableModel->status = SyncTable::STATUS_SCHEMA_COMPLETED;
                             $syncTableModel->errorSummary = Json::encode(["<b>" . $syncTableModel->tableName . "</b> table doesn't exist."]);
                             if (!$syncTableModel->save()) {
                                 echo Json::encode($syncTableModel->getErrors());

@@ -43,19 +43,19 @@ return [
             'view' => function ($url, $model) {
                 return Html::button(Icon::show('eye'), [
                     'type' => 'button',
-                    'class' => 'btn btn-primary',
+                    'class' => 'btn btn-success',
                 ]);
             },
             'update' => function ($url, $model) {
-                return Html::button(Icon::show('pencil'), [
+                return Html::button(Icon::show('edit'), [
                     'type' => 'button',
                     'class' => 'btn btn-primary',
                 ]);
             },
             'sync' => function ($url, $model) {
-                return Html::button(Icon::show('retweet'), [
+                return Html::button(Icon::show('compare'), [
                     'type' => 'button',
-                    'class' => 'btn btn-success configSync',
+                    'class' => 'btn btn-priary configSync',
                     'title' =>'Sync',
                     //'id' => 'config-sync-button',
                     'data-url' => Url::to(['sync-config/sync'], true),
