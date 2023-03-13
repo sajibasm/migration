@@ -82,6 +82,9 @@ class MysqlSchemaConflict
         if (empty($infoSchemaData)) {
             //echo "\nIndex Data from SQL\n";
             $schemaData = $connection->createCommand("SELECT DISTINCT TABLE_NAME, INDEX_NAME, COLUMN_NAME FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = '${database}';")->queryAll();
+
+            dd($schemaData);
+            die();
             foreach ($schemaData as $row) {
                 if ($row['TABLE_NAME'] === $table && $row['INDEX_NAME'] !== 'PRIMARY') {
                     $infoSchemaData[] = ['index' => $row['INDEX_NAME'], 'key' => $row['COLUMN_NAME']];
@@ -390,7 +393,7 @@ class MysqlSchemaConflict
         echo "# Total Time consumed Hours: ${hours} Minutes: ${minutes} Seconds: ${seconds}  #\n";
         echo "#######################################################\n";
     }
-    
+
     public static function createQueue(int $limit, int $beginTime)
     {
         try {
@@ -457,7 +460,6 @@ class MysqlSchemaConflict
                 Yii::$app->getCache()->flush();
                 self::getTotalTimeConsumed($beginTime, microtime(true));
             }
-
 
         } catch (Exception $e) {
             echo "\n Exception: " . Json::encode($e->getMessage() . "\n");
