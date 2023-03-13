@@ -10,7 +10,7 @@ use yii\db\Connection;
 use yii\helpers\ArrayHelper;
 use yii\helpers\Json;
 
-class SchemaResolver
+class MySqlSchemaResolver
 {
 
 
@@ -325,9 +325,9 @@ class SchemaResolver
                 echo "..";
                 $targetCoreSchema = $targetConnection->schema->getTableSchema($syncTableModel->tableName);
                 echo "..";
-                $sourceSchema = SchemaConflict::getTableInfo($sourceCoreSchema, $sourceConnection, $syncTableModel->source->dbname, $syncTableModel->tableName);
+                $sourceSchema = MysqlSchemaConflict::getTableInfo($sourceCoreSchema, $sourceConnection, $syncTableModel->source->dbname, $syncTableModel->tableName);
                 echo "..";
-                $targetSchema = SchemaConflict::getTableInfo($targetCoreSchema, $targetConnection, $syncTableModel->target->dbname, $syncTableModel->tableName);
+                $targetSchema = MysqlSchemaConflict::getTableInfo($targetCoreSchema, $targetConnection, $syncTableModel->target->dbname, $syncTableModel->tableName);
                 echo "..";
                 self::generateSchema($syncTableModel, $sourceConnection, $targetConnection, $sourceSchema, $targetSchema);
                 echo "..";

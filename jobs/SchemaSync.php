@@ -20,7 +20,7 @@ class SchemaSync extends BaseObject implements RetryableJobInterface
      */
     public function execute($queue)
     {
-        \app\components\SchemaResolver::createQueue($this->id, $this->init_time);
+        \app\components\MySqlSchemaResolver::createQueue($this->id, $this->init_time);
         //SchemaInfo::schemaQueue($this->id, $this->init_time);
     }
 

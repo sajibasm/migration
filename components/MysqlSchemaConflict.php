@@ -15,7 +15,7 @@ use yii\helpers\ArrayHelper;
 use yii\helpers\Json;
 
 
-class SchemaConflict
+class MysqlSchemaConflict
 {
     public static function getHostToDatabase($id)
     {
@@ -91,7 +91,6 @@ class SchemaConflict
         }
         return $infoSchemaData;
     }
-
 
     /**
      * @param $sourceOrTargetSchema
@@ -391,8 +390,7 @@ class SchemaConflict
         echo "# Total Time consumed Hours: ${hours} Minutes: ${minutes} Seconds: ${seconds}  #\n";
         echo "#######################################################\n";
     }
-
-
+    
     public static function createQueue(int $limit, int $beginTime)
     {
         try {

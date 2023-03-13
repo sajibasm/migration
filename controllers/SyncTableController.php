@@ -2,7 +2,7 @@
 
 namespace app\controllers;
 
-use app\components\SchemaConflict;
+use app\components\MysqlSchemaConflict;
 use app\jobs\SchemaSync;
 use app\jobs\SchemeInfoJob;
 use app\models\SyncHostDb;
@@ -105,7 +105,7 @@ class SyncTableController extends Controller
         $model = new SyncTable();
         if ($this->request->isPost) {
             if ($model->load($this->request->post())) {
-                if (SchemaConflict::saveTableMetaQueue($model->source, $model->target)) {
+                if (MysqlSchemaConflict::saveTableMetaQueue($model->source, $model->target)) {
                     Yii::$app->getCache()->flush();
                     Yii::$app->queue->push(new SchemeInfoJob(['limit' => 20, 'init_time'=> microtime(true)]));
                     Yii::$app->getSession()->setFlash('success', 'Table meta queue has been created successfully');
@@ -129,7 +129,7 @@ class SyncTableController extends Controller
         if($id){
             //Yii::$app->queue->push(new SchemaSync(['id' => $id, 'init_time'=> microtime(true)]));
             //SchemaInfo::schemaQueue(10, microtime(true));
-            \app\components\SchemaResolver::createQueue($id, microtime(true));
+            \app\components\MySqlSchemaResolver::createQueue($id, microtime(true));
             return true;
         }
     }
@@ -139,7 +139,7 @@ class SyncTableController extends Controller
     {
 
 
-        SchemaConflict::createQueue(10, microtime(true));
+        MysqlSchemaConflict::createQueue(10, microtime(true));
         //Yii::$app->queue->push(new SchemeInfoJob(['limit' => 20, 'init_time'=> microtime(true)]));
     }
 
