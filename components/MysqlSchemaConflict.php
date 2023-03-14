@@ -10,7 +10,6 @@ use app\models\SyncTable;
 use Exception;
 use Yii;
 use yii\db\Connection;
-use yii\db\TableSchema;
 use yii\helpers\ArrayHelper;
 use yii\helpers\Json;
 
@@ -55,8 +54,8 @@ class MysqlSchemaConflict
         $infoSchemaData = Yii::$app->getCache()->get($key);
         if ($infoSchemaData === false) {
             //echo "\nEngine Data from SQL\n";
-            $schemaData = $connection->createCommand("SELECT * FROM  information_schema.TABLES WHERE  TABLE_SCHEMA = '${database}';")->queryAll();
-            foreach ($schemaData as $row) {
+            $engineData = $connection->createCommand("SELECT * FROM  information_schema.TABLES WHERE  TABLE_SCHEMA = '${database}';")->queryAll();
+            foreach ($engineData as $row) {
                 //echo '\n'.$row['TABLE_NAME'] .'\n';
                 if ($row['TABLE_NAME'] === $table) {
                     $infoSchemaData = $row;
@@ -81,11 +80,8 @@ class MysqlSchemaConflict
 
         if (empty($infoSchemaData)) {
             //echo "\nIndex Data from SQL\n";
-            $schemaData = $connection->createCommand("SELECT DISTINCT TABLE_NAME, INDEX_NAME, COLUMN_NAME FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = '${database}';")->queryAll();
-
-            dd($schemaData);
-            die();
-            foreach ($schemaData as $row) {
+            $indexData = $connection->createCommand("SELECT DISTINCT TABLE_NAME, INDEX_NAME, COLUMN_NAME FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = '${database}';")->queryAll();
+            foreach ($indexData as $row) {
                 if ($row['TABLE_NAME'] === $table && $row['INDEX_NAME'] !== 'PRIMARY') {
                     $infoSchemaData[] = ['index' => $row['INDEX_NAME'], 'key' => $row['COLUMN_NAME']];
                 }
@@ -93,6 +89,39 @@ class MysqlSchemaConflict
             Yii::$app->getCache()->set(md5(trim($row['TABLE_NAME']) . "_index_info_cache" . $database), $infoSchemaData, 180);
         }
         return $infoSchemaData;
+    }
+
+    protected function getColumnCollation(Connection &$connection, string $database, $table, $clearCache = false)
+    {
+        if ($clearCache) {
+            return Yii::$app->getCache()->flush();
+        }
+
+        $key = md5(trim($table) . "_table_column_collation_cache" . $database);
+        $infoSchemaData = Yii::$app->getCache()->get($key) ?: [];
+        if (empty($infoSchemaData)) {
+            //echo "\nIndex Data from SQL\n";
+            $columnCollationData = $connection->createCommand("SELECT TABLE_NAME, COLUMN_NAME, COLLATION_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='${table}';")->queryAll();
+            foreach ($columnCollationData as $row) {
+                if ($row['TABLE_NAME'] === $table) {
+                    if (isset($infoSchemaData[$row['COLUMN_NAME']])) {
+                        $infoSchemaData[$row['COLUMN_NAME']] = [
+                            "COLUMN_NAME" => $row['COLUMN_NAME'],
+                            'COLLATION' => $row['COLLATION_NAME'] ?: null,
+                        ];
+                    } else {
+                        $infoSchemaData[$row['COLUMN_NAME']] = [
+                            "COLUMN_NAME" => $row['COLUMN_NAME'],
+                            'COLLATION' => $row['COLLATION_NAME'] ?: null,
+                        ];
+                    }
+                }
+            }
+        }
+
+        Yii::$app->getCache()->set($key, $infoSchemaData, 180);
+        return $infoSchemaData;
+
     }
 
     /**
@@ -104,7 +133,8 @@ class MysqlSchemaConflict
      * @return SchemaObject|bool
      * @throws \yii\db\Exception
      */
-    public static function getTableInfo(&$sourceOrTargetSchema, Connection &$connection, string $database, $table, $clearCache = false)
+    public
+    static function getTableInfo(&$sourceOrTargetSchema, Connection &$connection, string $database, $table, $clearCache = false)
     {
         if ($clearCache) {
             echo "..";
@@ -114,14 +144,16 @@ class MysqlSchemaConflict
         echo "..";
         $schema = new SchemaObject($sourceOrTargetSchema);
         echo "..";
-        $schema->setEngine(self::getEngine($connection, $database, $table, false));
+        $schema->setEngine(self::getEngine($connection, $database, $table));
         echo "..";
-        $schema->setIndex(self::getIndex($connection, $database, $table, false));
+        $schema->setIndex(self::getIndex($connection, $database, $table));
+        $schema->setColumnCollations(self::getColumnCollation($connection, $database, $table));
         echo "..";
         return $schema;
     }
 
-    public static function saveTableMetaQueue(SyncHostDb $source, SyncHostDb $target)
+    public
+    static function saveTableMetaQueue(SyncHostDb $source, SyncHostDb $target)
     {
         try {
             $rows = [];
@@ -164,7 +196,8 @@ class MysqlSchemaConflict
         }
     }
 
-    public static function singularTableInfo(SyncTable &$syncTableModel, Connection $sourceConnection, Connection $targetConnection, SchemaObject $sourceSchema, SchemaObject $targetSchema)
+    public
+    static function singularTableInfo(SyncTable &$syncTableModel, Connection $sourceConnection, Connection $targetConnection, SchemaObject $sourceSchema, SchemaObject $targetSchema)
     {
         try {
 
@@ -370,6 +403,24 @@ class MysqlSchemaConflict
                 }
             }
 
+            if (ArrayHelper::getValue($sourceSchema, 'columnCollations')) {
+                foreach (ArrayHelper::getValue($sourceSchema, 'columnCollations') as $sourceColumn) {
+                    $isMatch = false;
+                    foreach (ArrayHelper::getValue($targetSchema, 'columnCollations') as $targetColumn) {
+                        if (($sourceColumn['COLUMN_NAME'] === $targetColumn['COLUMN_NAME']) && ($sourceColumn['COLLATION'] === $targetColumn['COLLATION'])) {
+                            $isMatch = true;
+                            break;
+                        }
+                    }
+                    if (!$isMatch) {
+                        $syncTableModel->isSuccess = 0;
+                        $syncTableModel->isCols = 0;
+                        $errorSummary[] = "<b>Column Collations</b> (" . $sourceColumn->name . ") doesn't match ('".$sourceColumn['COLLATION']."').";
+                    }
+
+                }
+            }
+
             $syncTableModel->errorSummary = Json::encode($errorSummary);
             if (!$syncTableModel->save()) {
                 dd($syncTableModel->getErrors());
@@ -377,13 +428,16 @@ class MysqlSchemaConflict
                 echo Json::encode($syncTableModel->getErrors());
             }
 
+
+
         } catch (Exception $e) {
             echo Json::encode($e->getMessage()) . '\n';
             echo $e->getTraceAsString() . '\n';
         }
     }
 
-    private static function getTotalTimeConsumed($starttime, $endtime)
+    private
+    static function getTotalTimeConsumed($starttime, $endtime)
     {
         $duration = $endtime - $starttime;
         $hours = (int)($duration / 60 / 60);
@@ -394,7 +448,8 @@ class MysqlSchemaConflict
         echo "#######################################################\n";
     }
 
-    public static function createQueue(int $limit, int $beginTime)
+    public
+    static function createQueue(int $limit, int $beginTime)
     {
         try {
             echo "\n=== Queue Call......\n";
