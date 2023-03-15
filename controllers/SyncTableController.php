@@ -137,8 +137,6 @@ class SyncTableController extends Controller
 
     public function actionSchemaQueue()
     {
-
-
         MysqlSchemaConflict::createQueue(10, microtime(true));
         //Yii::$app->queue->push(new SchemeInfoJob(['limit' => 20, 'init_time'=> microtime(true)]));
     }

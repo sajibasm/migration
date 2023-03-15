@@ -14,13 +14,14 @@ class SchemaObject
     public $sequenceName;
     public $foreignKeys;
     public $columns;
+    public $columnCollations;
 
     /**
      * @param $schemaName
      */
     public function __construct($schema)
     {
-        if(is_object($schema)){
+        if (is_object($schema)) {
             $this->schemaName = $schema->schemaName;
             $this->name = $schema->name;
             $this->fullName = $schema->fullName;
@@ -50,7 +51,6 @@ class SchemaObject
     }
 
 
-
     /**
      * @param mixed $engine
      */
@@ -68,4 +68,8 @@ class SchemaObject
         $this->index = $index;
     }
 
+    public function setColumnCollations(array $columnCollations)
+    {
+        $this->columnCollations = $columnCollations;
+    }
 }

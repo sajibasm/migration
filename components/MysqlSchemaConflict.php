@@ -101,7 +101,7 @@ class MysqlSchemaConflict
         $infoSchemaData = Yii::$app->getCache()->get($key) ?: [];
         if (empty($infoSchemaData)) {
             //echo "\nIndex Data from SQL\n";
-            $columnCollationData = $connection->createCommand("SELECT TABLE_NAME, COLUMN_NAME, COLLATION_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='${table}';")->queryAll();
+            $columnCollationData = $connection->createCommand("SELECT TABLE_NAME, COLUMN_NAME, COLLATION_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = '${database}' AND TABLE_NAME='${table}';")->queryAll();
             foreach ($columnCollationData as $row) {
                 if ($row['TABLE_NAME'] === $table) {
                     if (isset($infoSchemaData[$row['COLUMN_NAME']])) {
@@ -212,6 +212,7 @@ class MysqlSchemaConflict
             $syncTableModel->isCols = 1;
             $syncTableModel->isRows = 1;
             $syncTableModel->isSuccess = 1;
+
             //Check Engine type
             if (ArrayHelper::getValue($sourceSchema, 'engine')) {
                 if (ArrayHelper::getValue($targetSchema, 'engine')) {
@@ -338,7 +339,6 @@ class MysqlSchemaConflict
                 }
             }
 
-
             //Check if index key is missing.
             if (ArrayHelper::getValue($sourceSchema, 'index') && count(ArrayHelper::getValue($targetSchema, 'index')) > 0) {
                 $emptyIndexKeys = [];
@@ -407,15 +407,16 @@ class MysqlSchemaConflict
                 foreach (ArrayHelper::getValue($sourceSchema, 'columnCollations') as $sourceColumn) {
                     $isMatch = false;
                     foreach (ArrayHelper::getValue($targetSchema, 'columnCollations') as $targetColumn) {
-                        if (($sourceColumn['COLUMN_NAME'] === $targetColumn['COLUMN_NAME']) && ($sourceColumn['COLLATION'] === $targetColumn['COLLATION'])) {
+                        if ((trim($sourceColumn['COLUMN_NAME']) === trim($targetColumn['COLUMN_NAME'])) && (trim($sourceColumn['COLLATION'] )===trim($targetColumn['COLLATION']))) {
                             $isMatch = true;
                             break;
                         }
                     }
+
                     if (!$isMatch) {
-                        $syncTableModel->isSuccess = 0;
                         $syncTableModel->isCols = 0;
-                        $errorSummary[] = "<b>Column Collations</b> (" . $sourceColumn->name . ") doesn't match ('".$sourceColumn['COLLATION']."').";
+                        $syncTableModel->isSuccess = 0;
+                        $errorSummary[] = "<b>Column Collations</b> (" . $sourceColumn['COLUMN_NAME'] . ") doesn't match ('".$sourceColumn['COLLATION']."').";
                     }
 
                 }
@@ -427,8 +428,6 @@ class MysqlSchemaConflict
             } else {
                 echo Json::encode($syncTableModel->getErrors());
             }
-
-
 
         } catch (Exception $e) {
             echo Json::encode($e->getMessage()) . '\n';
