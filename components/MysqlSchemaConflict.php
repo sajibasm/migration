@@ -124,6 +124,15 @@ class MysqlSchemaConflict
 
     }
 
+    protected static function getTotalRows(Connection &$connection, string $database, $table)
+    {
+        $data = $connection->createCommand("SELECT COUNT(*) as total FROM " . $database . "." . $table . ";")->queryOne();
+        if ($data) {
+            return $data['total'];
+        }
+        return 0;
+    }
+
     /**
      * @param $sourceOrTargetSchema
      * @param Connection $connection
@@ -147,6 +156,7 @@ class MysqlSchemaConflict
         echo "..";
         $schema->setIndex(self::getIndex($connection, $database, $table));
         $schema->setColumnCollations(self::getColumnCollation($connection, $database, $table));
+        $schema->setTotalRows(self::getTotalRows($connection, $database, $table));
         echo "..";
         return $schema;
     }
@@ -217,7 +227,7 @@ class MysqlSchemaConflict
                     if ($sourceSchema->engine->name !== $targetSchema->engine->name) {
                         $syncTableModel->isSuccess = 0;
                         $syncTableModel->isEngine = 0;
-                        $errorSummary[] = "<b>Engine</b> (" . $sourceSchema->engine->name . ") doesn't match ";
+                        $errorSummary[] = "<b>Engine</b> (" . $sourceSchema->engine->name . ") doesn't match.";
                     }
                 }
             }
@@ -228,7 +238,7 @@ class MysqlSchemaConflict
                     if ($sourceSchema->engine->tableCollation !== $targetSchema->engine->tableCollation) {
                         $syncTableModel->isSuccess = 0;
                         $syncTableModel->isEngine = 0;
-                        $errorSummary[] = "<b>Engine Collation</b> (" . $sourceSchema->engine->tableCollation . ") doesn't match ";
+                        $errorSummary[] = "<b>Engine Collation</b> (" . $sourceSchema->engine->tableCollation . ") doesn't match.";
                     }
                 }
             }
@@ -254,6 +264,15 @@ class MysqlSchemaConflict
                     $syncTableModel->autoIncrement = 0;
                     $errorSummary[] = "<b>Auto Increment</b> (" . $autoIncrementKey . ") doesn't set.";
                 }
+            }
+
+
+            if ((ArrayHelper::getValue($sourceSchema, 'totalRows') && ArrayHelper::getValue($sourceSchema, 'totalRows')) &&
+                (ArrayHelper::getValue($sourceSchema, 'totalRows') !== ArrayHelper::getValue($targetSchema, 'totalRows'))) {
+                $syncTableModel->isSuccess = 0;
+                $syncTableModel->isRows = 0;
+                $gap = (int)(ArrayHelper::getValue($sourceSchema, 'totalRows') - ArrayHelper::getValue($targetSchema, 'totalRows'));
+                $errorSummary[] = "<b>Total Records </b>(Gap: ${gap}) doesn't match.";
             }
 
             //Check if primary key is missing.
@@ -310,14 +329,13 @@ class MysqlSchemaConflict
                 }
             }
 
-            //Check if foreign key is missing.
-            if (ArrayHelper::getValue($sourceSchema, 'foreignKeys') && count(ArrayHelper::getValue($targetSchema, 'foreignKeys')) > 0) {
+            //Check if foreign key is missing. TODO
+            if (ArrayHelper::getValue($sourceSchema, 'foreignKeys') && count(ArrayHelper::getValue($sourceSchema, 'foreignKeys')) > 0) {
                 $emptyForeignKeys = [];
-
-                foreach (ArrayHelper::getValue($sourceSchema, 'foreignKeys') as $sourceForeignKeyName => $sourceForeignKey) {
-                    if (ArrayHelper::getValue($targetSchema, 'foreignKeys')) {
+                foreach (ArrayHelper::getValue($sourceSchema, 'foreignKeys') as $sourceForeignKey) {
+                    if (ArrayHelper::getValue($targetSchema, 'foreignKeys') && count(ArrayHelper::getValue($targetSchema, 'foreignKeys')) > 0) {
                         $isMatch = false;
-                        foreach (ArrayHelper::getValue($targetSchema, 'foreignKeys') as $targetForeignKeyName => $targetForeignKey) {
+                        foreach (ArrayHelper::getValue($targetSchema, 'foreignKeys') as $targetForeignKey) {
                             if ($sourceForeignKey[0] === $targetForeignKey[0]) {
                                 $isMatch = true;
                             }
@@ -329,7 +347,6 @@ class MysqlSchemaConflict
                         $emptyForeignKeys[] = $sourceForeignKey[0];
                     }
                 }
-
                 if ($emptyForeignKeys) {
                     $syncTableModel->isSuccess = 0;
                     $syncTableModel->isForeign = 0;
@@ -364,6 +381,8 @@ class MysqlSchemaConflict
                 }
             }
 
+            $findMissingColumnAndIgnoreInCollationCheck = [];
+
             // compare and find the missing columns with attributes
             if (ArrayHelper::getValue($sourceSchema, 'columns')) {
                 foreach (ArrayHelper::getValue($sourceSchema, 'columns') as $sourceColumn) {
@@ -377,6 +396,7 @@ class MysqlSchemaConflict
                     }
 
                     if (!$columnMatch) {
+                        $findMissingColumnAndIgnoreInCollationCheck[$sourceColumn->name] = 1;
                         $syncTableModel->isSuccess = 0;
                         $syncTableModel->isCols = 0;
                         $errorSummary[] = "<b>Column</b> (" . $sourceColumn->name . ") doesn't set.";
@@ -405,16 +425,16 @@ class MysqlSchemaConflict
                 foreach (ArrayHelper::getValue($sourceSchema, 'columnCollations') as $sourceColumn) {
                     $isMatch = false;
                     foreach (ArrayHelper::getValue($targetSchema, 'columnCollations') as $targetColumn) {
-                        if ((trim($sourceColumn['COLUMN_NAME']) === trim($targetColumn['COLUMN_NAME'])) && (trim($sourceColumn['COLLATION'] )===trim($targetColumn['COLLATION']))) {
+                        if ((trim($sourceColumn['COLUMN_NAME']) === trim($targetColumn['COLUMN_NAME'])) && (trim($sourceColumn['COLLATION']) === trim($targetColumn['COLLATION']))) {
                             $isMatch = true;
                             break;
                         }
                     }
 
-                    if (!$isMatch) {
+                    if (!$isMatch && !isset($findMissingColumnAndIgnoreInCollationCheck[$sourceColumn['COLUMN_NAME']])) {
                         $syncTableModel->isCols = 0;
                         $syncTableModel->isSuccess = 0;
-                        $errorSummary[] = "<b>Collations</b> (" . $sourceColumn['COLUMN_NAME'] . ") doesn't match ('".$sourceColumn['COLLATION']."').";
+                        $errorSummary[] = "<b>Collations</b> (" . $sourceColumn['COLUMN_NAME'] . ") doesn't match ('" . $sourceColumn['COLLATION'] . "').";
                     }
 
                 }
@@ -427,7 +447,8 @@ class MysqlSchemaConflict
                 echo Json::encode($syncTableModel->getErrors());
             }
 
-        } catch (Exception $e) {
+        } catch
+        (Exception $e) {
             echo Json::encode($e->getMessage()) . '\n';
             echo $e->getTraceAsString() . '\n';
         }

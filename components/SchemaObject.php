@@ -14,6 +14,7 @@ class SchemaObject
     public $sequenceName;
     public $foreignKeys;
     public $columns;
+    public $totalRows;
     public $columnCollations;
 
     /**
@@ -71,5 +72,10 @@ class SchemaObject
     public function setColumnCollations(array $columnCollations)
     {
         $this->columnCollations = $columnCollations;
+    }
+
+    public function setTotalRows(int $row)
+    {
+        $this->totalRows = $row;
     }
 }
