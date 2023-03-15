@@ -44,7 +44,7 @@ class MysqlSchemaConflict
         }
     }
 
-    protected function getEngine(Connection &$connection, string $database, $table, $clearCache = false)
+    protected static function getEngine(Connection &$connection, string $database, $table, $clearCache = false)
     {
         if ($clearCache) {
             return Yii::$app->getCache()->flush();
@@ -69,7 +69,7 @@ class MysqlSchemaConflict
         return new Engine($infoSchemaData);
     }
 
-    protected function getIndex(Connection &$connection, string $database, $table, $clearCache = false)
+    protected static function getIndex(Connection &$connection, string $database, $table, $clearCache = false)
     {
         if ($clearCache) {
             return Yii::$app->getCache()->flush();
@@ -91,7 +91,7 @@ class MysqlSchemaConflict
         return $infoSchemaData;
     }
 
-    protected function getColumnCollation(Connection &$connection, string $database, $table, $clearCache = false)
+    protected static function getColumnCollation(Connection &$connection, string $database, $table, $clearCache = false)
     {
         if ($clearCache) {
             return Yii::$app->getCache()->flush();
@@ -133,8 +133,7 @@ class MysqlSchemaConflict
      * @return SchemaObject|bool
      * @throws \yii\db\Exception
      */
-    public
-    static function getTableInfo(&$sourceOrTargetSchema, Connection &$connection, string $database, $table, $clearCache = false)
+    public static function getTableInfo(&$sourceOrTargetSchema, Connection &$connection, string $database, $table, $clearCache = false)
     {
         if ($clearCache) {
             echo "..";
@@ -196,8 +195,7 @@ class MysqlSchemaConflict
         }
     }
 
-    public
-    static function singularTableInfo(SyncTable &$syncTableModel, Connection $sourceConnection, Connection $targetConnection, SchemaObject $sourceSchema, SchemaObject $targetSchema)
+    public static function singularTableInfo(SyncTable &$syncTableModel, Connection $sourceConnection, Connection $targetConnection, SchemaObject $sourceSchema, SchemaObject $targetSchema)
     {
         try {
 
@@ -416,7 +414,7 @@ class MysqlSchemaConflict
                     if (!$isMatch) {
                         $syncTableModel->isCols = 0;
                         $syncTableModel->isSuccess = 0;
-                        $errorSummary[] = "<b>Column Collations</b> (" . $sourceColumn['COLUMN_NAME'] . ") doesn't match ('".$sourceColumn['COLLATION']."').";
+                        $errorSummary[] = "<b>Collations</b> (" . $sourceColumn['COLUMN_NAME'] . ") doesn't match ('".$sourceColumn['COLLATION']."').";
                     }
 
                 }
@@ -435,8 +433,7 @@ class MysqlSchemaConflict
         }
     }
 
-    private
-    static function getTotalTimeConsumed($starttime, $endtime)
+    private static function getTotalTimeConsumed($starttime, $endtime)
     {
         $duration = $endtime - $starttime;
         $hours = (int)($duration / 60 / 60);
@@ -447,8 +444,7 @@ class MysqlSchemaConflict
         echo "#######################################################\n";
     }
 
-    public
-    static function createQueue(int $limit, int $beginTime)
+    public static function createQueue(int $limit, int $beginTime)
     {
         try {
             echo "\n=== Queue Call......\n";

@@ -14,90 +14,96 @@ class MySqlSchemaResolver
 {
 
 
-    private static function alterColumn(string &$tableName, $sourceSchemas, $targetSchemas)
+    private static function alterColumn(string &$tableName, &$sourceSchema, &$targetSchema)
     {
 
 
         $sql = '';
         $afterColumn = [];
         $targetSchemaObject = null;
-        foreach ($sourceSchemas as $sourceKey => $sourceColumn) {
-            $isColumnMatch = false;
-            foreach ($targetSchemas as $targetColumn) {
-                if ($sourceColumn->name === $targetColumn->name) {
-                    $isColumnMatch = true;
-                    $targetSchemaObject = $targetColumn;
+        $sourceColumns = ArrayHelper::getValue($sourceSchema, 'columns');
+        $targetColumns = ArrayHelper::getValue($targetSchema, 'columns');
+
+
+        $sourceCollations = ArrayHelper::getValue($sourceSchema, 'columnCollations');
+        $targetCollations = ArrayHelper::getValue($targetSchema, 'columnCollations');
+
+
+        foreach ($sourceCollations as $sourceKey => $sourceCollation) {
+
+            $targetSchemaObject = null;
+
+            foreach ($targetCollations as $targetCollation) {
+                if ($sourceCollation['COLUMN_NAME'] === $targetCollation['COLUMN_NAME']) {
+                    $targetSchemaObject = $targetCollation;
+                    break;
                 }
             }
 
-            if ($isColumnMatch) {
-                $sql = "ALTER TABLE `TABLE_NAME` CHANGE `COLUMN_NAME` `COLUMN_NAME` ";
-                $sql = str_replace("TABLE_NAME", $tableName, $sql);
-                $sql = str_replace("COLUMN_NAME", $sourceColumn->name, $sql);
+            if ($targetSchemaObject) {
 
-                if (str_contains($sourceColumn->dbType, 'enum')) {
-                    $dataType = substr($sourceColumn->dbType, 0, 4);
-                    $default = substr($sourceColumn->dbType, 4, strlen($sourceColumn->dbType));
+                $sql = "ALTER TABLE `${tableName}` CHANGE `".$sourceCollation->name."` `".$sourceCollation->name."` ";
+
+                if (str_contains($sourceCollation->dbType, 'enum')) {
+                    $dataType = substr($sourceCollation->dbType, 0, 4);
+                    $default = substr($sourceCollation->dbType, 4, strlen($sourceCollation->dbType));
                     $sql = str_replace("DATATYPE", strtoupper($dataType) . $default, $sql);
                 } else {
-                    $sql .= strtoupper($sourceColumn->dbType) . " ";
+                    $sql .= strtoupper($sourceCollation->dbType) . " ";
                 }
 
-                if ($sourceColumn->defaultValue) {
-                    if (in_array($sourceColumn->dbType, ['date', 'time', 'year', 'timestamp', 'datetime'])) {
-                        $sql .= " NOT NULL DEFAULT " . $sourceColumn->defaultValue;
+                if ($sourceCollation->defaultValue) {
+                    if (in_array($sourceCollation->dbType, ['date', 'time', 'year', 'timestamp', 'datetime'])) {
+                        $sql .= " NOT NULL DEFAULT " . $sourceCollation->defaultValue;
                     } else {
-                        $sql .= " NOT NULL DEFAULT '" . $sourceColumn->defaultValue . "'";
+                        $sql .= " NOT NULL DEFAULT '" . $sourceCollation->defaultValue . "'";
                     }
 
-                } elseif ($sourceColumn->allowNull) {
+                } elseif ($sourceCollation->allowNull) {
                     $sql .= " NULL";
                 } else {
                     $sql .= " NOT NULL";
                 }
 
 
-                if (!empty($sourceColumn->comment) && ($sourceColumn->comment !== $targetSchemaObject->comment)) {
-                    $sql .= " COMMENT '" . $sourceColumn->comment . "'";
+                if (!empty($sourceCollation->comment) && ($sourceCollation->comment !== $targetSchemaObject->comment)) {
+                    $sql .= " COMMENT '" . $sourceCollation->comment . "'";
                 }
 
             } else {
 
-                $sql = "ALTER TABLE `TABLE_NAME` ADD `COLUMN_NAME` DATATYPE";
-                $sql = str_replace("TABLE_NAME", $tableName, $sql);
-                $sql = str_replace("COLUMN_NAME", $sourceColumn->name, $sql);
-
-                if (str_contains($sourceColumn->dbType, 'enum')) {
-                    $dataType = substr($sourceColumn->dbType, 0, 4);
-                    $default = substr($sourceColumn->dbType, 4, strlen($sourceColumn->dbType));
+                $sql = "ALTER TABLE `${tableName}` ADD `".$sourceCollation->name."` DATATYPE";
+                if (str_contains($sourceCollation->dbType, 'enum')) {
+                    $dataType = substr($sourceCollation->dbType, 0, 4);
+                    $default = substr($sourceCollation->dbType, 4, strlen($sourceCollation->dbType));
                     $sql = str_replace("DATATYPE", strtoupper($dataType) . $default, $sql);
                 } else {
-                    $sql = str_replace("DATATYPE", strtoupper($sourceColumn->dbType), $sql);
+                    $sql = str_replace("DATATYPE", strtoupper($sourceCollation->dbType), $sql);
                 }
 
-                if ($sourceColumn->defaultValue) {
-                    if (in_array($sourceColumn->dbType, ['date', 'time', 'year', 'timestamp', 'datetime'])) {
-                        $sql .= " NOT NULL DEFAULT " . $sourceColumn->defaultValue;
+                if ($sourceCollation->defaultValue) {
+                    if (in_array($sourceCollation->dbType, ['date', 'time', 'year', 'timestamp', 'datetime'])) {
+                        $sql .= " NOT NULL DEFAULT " . $sourceCollation->defaultValue;
                     } else {
-                        $sql .= " NOT NULL DEFAULT '" . $sourceColumn->defaultValue . "'";
+                        $sql .= " NOT NULL DEFAULT '" . $sourceCollation->defaultValue . "'";
                     }
 
-                } elseif ($sourceColumn->allowNull) {
+                } elseif ($sourceCollation->allowNull) {
                     $sql .= " ";
                 } else {
                     $sql .= " NOT NULL";
                 }
 
-                if ($sourceColumn->comment !== $targetSchemaObject->comment) {
-                    $sql .= " COMMENT '" . $sourceColumn->comment . "'";
+                if ($sourceCollation->comment !== $targetSchemaObject->comment) {
+                    $sql .= " COMMENT '" . $sourceCollation->comment . "'";
                 }
 
                 if ($afterColumn) {
-                    $sql .= " AFTER  '" . $sourceColumn->name . "'";
+                    $sql .= " AFTER  '" . $sourceCollation->name . "'";
                 }
             }
 
-            $afterColumn = $sourceColumn;
+            $afterColumn = $sourceCollation;
         }
 
         return $sql . ";";
@@ -131,7 +137,7 @@ class MySqlSchemaResolver
                 if (ArrayHelper::getValue($sourceSchema, 'engine')) {
                     if (ArrayHelper::getValue($targetSchema, 'engine')) {
                         if ($sourceSchema->engine->name !== $targetSchema->engine->name) {
-                            $alterQuery[] = "ALTER TABLE `${tableName}` ENGINE = " . $sourceSchema->engine->name . ";";
+                            $alterQuery[] = "ALTER TABLE `${tableName}` ENGINE = `" . $sourceSchema->engine->name . "`;";
                         }
                     }
                 }
@@ -140,16 +146,19 @@ class MySqlSchemaResolver
                 if (ArrayHelper::getValue($sourceSchema, 'engine')) {
                     if (ArrayHelper::getValue($targetSchema, 'engine')) {
                         if ($sourceSchema->engine->tableCollation !== $targetSchema->engine->tableCollation) {
-                            $alterQuery[] = "ALTER TABLE `${tableName}` COLLATE utf8mb4_0900_ai_ci;";
+                            $alterQuery[] = "ALTER TABLE `${tableName}` COLLATE `".$sourceSchema->engine->tableCollation."`;";
                         }
                     }
                 }
 
                 // Find Missing Column Alter
                 if (ArrayHelper::getValue($sourceSchema, 'columns')) {
-                    $alterQuery[] = self::alterColumn($tableName, ArrayHelper::getValue($sourceSchema, 'columns'), ArrayHelper::getValue($targetSchema, 'columns'));
+                    $alterQuery[] = self::alterColumn($tableName, $sourceSchema, $targetSchema );
                 }
 
+
+                dd($alterQuery);
+                die();
 
                 //Check if primary key is missing.
                 if (ArrayHelper::getValue($sourceSchema, 'primaryKey') && count(ArrayHelper::getValue($targetSchema, 'primaryKey')) > 0) {
