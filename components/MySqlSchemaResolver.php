@@ -44,36 +44,55 @@ class MySqlSchemaResolver
             }
 
             if ($targetSchemaObject) {
-                $sqlQuery = "ALTER TABLE `${tableName}` CHANGE `".$sourceColumn->name."` `".$sourceColumn->name."` ";
+
+//                if($sourceColumn->name==='createdAt'){
+//                    dd($sourceColumn);
+//                    dd($targetSchemaObject);
+//                    //die();
+//                }
+
+
+                $change = false;
+                $sqlChangeQuery = "ALTER TABLE `${tableName}` CHANGE `".$sourceColumn->name."` `".$sourceColumn->name."` ";
                 if($sourceColumn->dbType!==$targetSchemaObject->dbType){
                     if(!empty($sourceColumn->enumValues)){
                         $values = substr($sourceColumn->dbType, 4, strlen($sourceColumn->dbType));
-                        $sqlQuery = str_replace("DATATYPE", "ENUM${values}", $sqlQuery);
+                        $sqlChangeQuery = str_replace("DATATYPE", "ENUM${values}", $sqlQuery);
                     }else{
-                        $sqlQuery = str_replace("DATATYPE", strtoupper($sourceColumn->dbType), $sqlQuery);
+                        $sqlChangeQuery = str_replace("DATATYPE", strtoupper($sourceColumn->dbType), $sqlQuery);
                     }
+                    $change = true;
                 }
 
                 if ($sourceColumn->allowNull!==$targetSchemaObject->allowNull) {
                     if($sourceColumn->allowNull){
-                        $sqlQuery .= "NULL ";
+                        $sqlChangeQuery .= "NULL ";
                     }else{
-                        $sqlQuery .= "NOT NULL ";
+                        $sqlChangeQuery .= "NOT NULL ";
+                    }
+                    $change = true;
+                }
+
+                if(is_object($sourceColumn->defaultValue)){
+                    if($sourceColumn->defaultValue->expression!==$targetSchemaObject->defaultValue->expression){
+                        $change = true;
+                        $sqlChangeQuery .= "DEFAULT ".$sourceColumn->defaultValue->expression." ";
+                    }
+                }else{
+                    if($sourceColumn->defaultValue!==$targetSchemaObject->defaultValue){
+                        $change = true;
+                        $sqlChangeQuery .= "DEFAULT '" . $sourceColumn->defaultValue . "' ";
                     }
                 }
 
-                if($sourceColumn->defaultValue!==$targetSchemaObject->defaultValue){
-                    if (is_object($sourceColumn->defaultValue)) {
-                        $sqlQuery .= "DEFAULT ".$sourceColumn->defaultValue->expression." ";
-                    }else{
-                        $sqlQuery .= "DEFAULT '" . $sourceColumn->defaultValue . "' ";
-                    }
-                    if (!empty($sourceColumn->comment) && ($sourceColumn->comment !== $targetSchemaObject->comment)) {
-                        $sqlQuery .= "COMMENT '" . $sourceColumn->comment . "' ";
-                    }
+                if (!empty($sourceColumn->comment) && ($sourceColumn->comment !== $targetSchemaObject->comment)) {
+                    $change = true;
+                    $sqlChangeQuery .= "COMMENT '" . $sourceColumn->comment . "' ";
                 }
 
-                $sqlQuery .= ";";
+                if($change){
+                    $sqlQuery = trim($sqlChangeQuery).";";
+                }
 
             } else {
 
@@ -109,24 +128,17 @@ class MySqlSchemaResolver
                     $sqlQuery .= "AFTER '" . $afterColumn->name . "'";
                 }
 
-                $sqlQuery .= ";";
+                $sqlQuery = trim($sqlQuery).";";
             }
-
-
-
-            dd($sqlQuery);
-
-
-            $query[] =  $sqlQuery;
-
+            //dd($sqlQuery);
             $afterColumn = $sourceColumn;
+
+            if(!empty($sqlQuery)){
+                $query[] =  $sqlQuery;
+            }
         }
 
-
-        dd($query);
-        die();
-
-
+        return $query;
     }
 
 
@@ -173,11 +185,11 @@ class MySqlSchemaResolver
 
                 // Find Missing Column Alter
                 if (ArrayHelper::getValue($sourceSchema, 'columns')) {
-                    $alterQuery[] = self::alterColumn($tableName, $sourceSchema, $targetSchema );
+                    $alterColumn =  self::alterColumn($tableName, $sourceSchema, $targetSchema );
+                    if(!empty($alterColumn)){
+                        $alterQuery[] = array_merge($alterQuery, $alterColumn);
+                    }
                 }
-
-                dd($alterQuery);
-                die();
 
                 //Check if primary key is missing.
                 if (ArrayHelper::getValue($sourceSchema, 'primaryKey') && count(ArrayHelper::getValue($targetSchema, 'primaryKey')) > 0) {
@@ -282,50 +294,47 @@ class MySqlSchemaResolver
                     }
                 }
 
-
                 //Check if index key is missing.
-                if (ArrayHelper::getValue($sourceSchema, 'index') && count(ArrayHelper::getValue($targetSchema, 'index')) > 0) {
-                    $emptyIndexKeys = [];
-                    if (ArrayHelper::getValue($targetSchema, 'index')) {
-                        foreach (ArrayHelper::getValue($sourceSchema, 'index') as $sourceIndex) {
-                            if (ArrayHelper::getValue($targetSchema, 'index')) {
-                                $isMatch = false;
-                                foreach (ArrayHelper::getValue($targetSchema, 'index') as $targetIndex) {
-                                    if ($sourceIndex['key'] === $targetIndex['key']) {
-                                        $isMatch = true;
-                                    }
+                if (ArrayHelper::getValue($sourceSchema, 'index') && count(ArrayHelper::getValue($sourceSchema, 'index'))>0) {
+                    foreach (ArrayHelper::getValue($sourceSchema, 'index') as $sourceIndex) {
+                        if (ArrayHelper::getValue($targetSchema, 'index') && count(ArrayHelper::getValue($targetSchema, 'index'))>0) {
+                            $isMatch = false;
+                            foreach (ArrayHelper::getValue($targetSchema, 'index') as $targetIndex) {
+                                if ($sourceIndex['key'] === $targetIndex['key']) {
+                                    $isMatch = true;
                                 }
-                                if (!$isMatch) {
-
-                                    if (!in_array($sourceIndex['index'], $commonIndex)) {
-                                        $alterQuery[] = "ALTER TABLE `${tableName}` ADD INDEX `" . $sourceIndex['index'] . "` (`" . $sourceIndex['key'] . "`);";
-                                    }
-                                }
-                            } else {
-                                if (!in_array($sourceIndex['index'], $commonIndex)) {
+                            }
+                            if (!$isMatch) {
+                                if (!in_array($sourceIndex['key'], $commonIndex)) {
                                     $alterQuery[] = "ALTER TABLE `${tableName}` ADD INDEX `" . $sourceIndex['index'] . "` (`" . $sourceIndex['key'] . "`);";
                                 }
+                            }
+                        } else {
+                            if (!in_array($sourceIndex['key'], $commonIndex)) {
+                                $alterQuery[] = "ALTER TABLE `${tableName}` ADD INDEX `" . $sourceIndex['index'] . "` (`" . $sourceIndex['key'] . "`);";
                             }
                         }
                     }
                 }
 
                 $alterQuery[] = "SET FOREIGN_KEY_CHECKS=1;";
+
+
+                dd($alterQuery, count($alterQuery));die();
+
                 dd(implode(" \n", $alterQuery));die();
 
-                if ($alterQuery) {
+                if ($alterQuery && count($alterQuery)>2) {
                     $targetConnection->createCommand(implode(" \n", $alterQuery))->execute();
                     if ($model->save()) {
                         echo "${tableName} has been modified \n";
-                        Yii::$app->queue->push(new SchemeInfoJob(['limit' => 20, 'init_time' => microtime(true)]));
+                    }else {
+                        echo Json::encode($model->getErrors());
                     }
                 }
 
-                if (!$model->save()) {
-                    dd($model->getErrors());
-                } else {
-                    echo Json::encode($model->getErrors());
-                }
+                Yii::$app->queue->push(new SchemeInfoJob(['limit' => 20, 'init_time' => microtime(true)]));
+                echo "Queue Called";
             }
 
         } catch (Exception $e) {

@@ -3,6 +3,7 @@
 namespace app\controllers;
 
 use app\components\MysqlSchemaConflict;
+use app\components\MySqlSchemaResolver;
 use app\jobs\SchemaSync;
 use app\jobs\SchemeInfoJob;
 use app\models\SyncHostDb;
@@ -129,7 +130,7 @@ class SyncTableController extends Controller
         if($id){
             //Yii::$app->queue->push(new SchemaSync(['id' => $id, 'init_time'=> microtime(true)]));
             //SchemaInfo::schemaQueue(10, microtime(true));
-            \app\components\MySqlSchemaResolver::createQueue($id, microtime(true));
+            MySqlSchemaResolver::createQueue($id, microtime(true));
             return true;
         }
     }
