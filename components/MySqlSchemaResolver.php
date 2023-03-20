@@ -6,6 +6,7 @@ use app\jobs\SchemeInfoJob;
 use app\models\SyncTable;
 use Exception;
 use Yii;
+use yii\base\NotSupportedException;
 use yii\db\Connection;
 use yii\helpers\ArrayHelper;
 use yii\helpers\Json;
@@ -13,132 +14,188 @@ use yii\helpers\Json;
 class MySqlSchemaResolver
 {
 
+    private static function isModifiedColumn($source, $target, $column, &$sourceSchema, &$targetSchema)
+    {
+        if(self::isChangeCollationSet($column, $sourceSchema, $targetSchema)){
+            return  true;
+        }
 
-    private static function alterColumn(string &$tableName, &$sourceSchema, &$targetSchema)
+        if ($source->dbType !== $target->dbType) {
+            dd("dbType");
+            return true;
+        }
+
+        if ($source->allowNull !== $target->allowNull) {
+            dd("allowNull");
+            return true;
+        }
+
+        if (is_object($source->defaultValue)) {
+            if(!is_object($target->defaultValue)) {
+                dd("defaultValueExpression");
+                return true;
+            }
+
+            if(($source->defaultValue->expression !== $target->defaultValue->expression)) {
+                dd("defaultValueExpression");
+                return true;
+            }
+        }
+
+        if (($source->defaultValue) && ($source->defaultValue !== $target->defaultValue)) {
+            dd("defaultValue");
+            return true;
+        }
+
+        if (!empty($sourceColumn->enumValues) && (explode("", $sourceColumn->enumValues) !== explode(":", $target->enumValues))) {
+            dd("enumValues");
+            return true;
+        }
+
+        if (!empty($source->comment) && ($source->comment !== $target->comment)) {
+            dd("comment");
+            return true;
+        }
+    }
+
+    private static function customeSQLTrim($sql)
+    {
+        return trim(str_replace("CHARACTER_SET", "", str_replace("COMMENT_VALUE", "", str_replace("DEFAULT_VALUE", "", str_replace("NULL_VALUE", "", $sql))))) . ";";
+    }
+
+    private static function isChangeCollationSet($column, &$sourceSchema, &$targetSchema)
+    {
+        $sourceCollations = ArrayHelper::getValue($sourceSchema, 'columnCollations');
+        $targetCollations = ArrayHelper::getValue($targetSchema, 'columnCollations');
+
+        if( (isset($sourceCollations[$column]) && isset($targetCollations[$column])) &&
+            $sourceCollations[$column]['COLLATION'] === $targetCollations[$column]['COLLATION']
+        ) {
+            return false;
+        }
+
+        return  true;
+    }
+
+    private static function getCollationSet($column, &$sourceSchema)
+    {
+        $sourceCollations = ArrayHelper::getValue($sourceSchema, 'columnCollations');
+        if(!empty($sourceCollations[$column]['COLLATION'])){
+            $set = substr($sourceCollations[$column]['COLLATION'], 0, strpos($sourceCollations[$column]['COLLATION'], '_'));
+            $collate = $sourceCollations[$column]['COLLATION'];
+            return "CHARACTER SET ${set} COLLATE ${collate}";
+        }
+    }
+
+    private static function alterColumn(string &$tableName, &$sourceSchema, &$targetSchema, &$alterQuery)
     {
 
+        echo "<pre>";
 
-
+        $query = [];
         $afterColumn = null;
         $targetSchemaObject = null;
         $sourceColumns = ArrayHelper::getValue($sourceSchema, 'columns');
         $targetColumns = ArrayHelper::getValue($targetSchema, 'columns');
 
-        $sourceCollations = ArrayHelper::getValue($sourceSchema, 'columnCollations');
-        $targetCollations = ArrayHelper::getValue($targetSchema, 'columnCollations');
-
-        $query = [];
-
         foreach ($sourceColumns as $sourceKey => $sourceColumn) {
             $sqlQuery = '';
-            //dd($sourceColumn);
-            //dd($targetColumns);
 
             $targetSchemaObject = null;
             foreach ($targetColumns as $targetColumn) {
-                if($targetColumn->name===$sourceColumn->name){
+                if ($targetColumn->name === $sourceColumn->name) {
                     $targetSchemaObject = $targetColumn;
-                    //dd($targetColumn);
-                    //dd($sourceColumn);
                 }
             }
 
             if ($targetSchemaObject) {
 
-//                if($sourceColumn->name==='createdAt'){
-//                    dd($sourceColumn);
-//                    dd($targetSchemaObject);
-//                    //die();
-//                }
+                if (self::isModifiedColumn($sourceColumn, $targetSchemaObject, $sourceColumn->name, $sourceSchema, $targetSchema)) {
 
+                    $sqlChangeQuery = "ALTER TABLE `${tableName}` CHANGE `" . $sourceColumn->name . "` `" . $sourceColumn->name . "` DATATYPE CHARACTER_SET NULL_VALUE DEFAULT_VALUE COMMENT_VALUE";
 
-                $change = false;
-                $sqlChangeQuery = "ALTER TABLE `${tableName}` CHANGE `".$sourceColumn->name."` `".$sourceColumn->name."` ";
-                if($sourceColumn->dbType!==$targetSchemaObject->dbType){
-                    if(!empty($sourceColumn->enumValues)){
+                    $sqlChangeQuery = str_replace("CHARACTER_SET", self::getCollationSet($sourceColumn->name, $sourceSchema), $sqlChangeQuery);
+
+                    if(!self::isChangeCollationSet($sourceColumn->name, $sourceSchema, $targetSchema)) {
+                        $sqlChangeQuery = str_replace("CHARACTER_SET", self::getCollationSet($sourceColumn->name, $sourceSchema), $sqlChangeQuery);
+                    }
+
+                    if ($sourceColumn->allowNull) {
+                        $sqlChangeQuery = str_replace("NULL_VALUE", "NULL", $sqlChangeQuery);
+                    } else {
+                        $sqlChangeQuery = str_replace("NULL_VALUE", "NOT NULL", $sqlChangeQuery);
+                    }
+
+                    if (is_object($sourceColumn->defaultValue)) {
+                        if ($sourceColumn->defaultValue->expression) {
+                            $sqlChangeQuery = str_replace("DEFAULT_VALUE", "DEFAULT " . $sourceColumn->defaultValue->expression, $sqlChangeQuery);
+                        }
+                    } else {
+                        if ($sourceColumn->defaultValue !== $targetSchemaObject->defaultValue) {
+                            $sqlChangeQuery = str_replace("DEFAULT_VALUE", "DEFAULT '" . $sourceColumn->defaultValue . "'", $sqlChangeQuery);
+                        }
+                    }
+
+                    if (!empty($sourceColumn->comment) && ($sourceColumn->comment !== $targetSchemaObject->comment)) {
+                        $sqlChangeQuery = str_replace("COMMENT_VALUE", "COMMENT '" . $sourceColumn->comment . "'", $sqlChangeQuery);
+                    }
+
+                    if (!empty($sourceColumn->enumValues)) {
                         $values = substr($sourceColumn->dbType, 4, strlen($sourceColumn->dbType));
-                        $sqlChangeQuery = str_replace("DATATYPE", "ENUM${values}", $sqlQuery);
-                    }else{
-                        $sqlChangeQuery = str_replace("DATATYPE", strtoupper($sourceColumn->dbType), $sqlQuery);
+                        $sqlChangeQuery = str_replace("DATATYPE", "ENUM${values}", $sqlChangeQuery);
+                    } else {
+                        $sqlChangeQuery = str_replace("DATATYPE", strtoupper($sourceColumn->dbType), $sqlChangeQuery);
                     }
-                    $change = true;
-                }
 
-                if ($sourceColumn->allowNull!==$targetSchemaObject->allowNull) {
-                    if($sourceColumn->allowNull){
-                        $sqlChangeQuery .= "NULL ";
-                    }else{
-                        $sqlChangeQuery .= "NOT NULL ";
-                    }
-                    $change = true;
-                }
+                    $sqlQuery = self::customeSQLTrim($sqlChangeQuery);
 
-                if(is_object($sourceColumn->defaultValue)){
-                    if($sourceColumn->defaultValue->expression!==$targetSchemaObject->defaultValue->expression){
-                        $change = true;
-                        $sqlChangeQuery .= "DEFAULT ".$sourceColumn->defaultValue->expression." ";
-                    }
-                }else{
-                    if($sourceColumn->defaultValue!==$targetSchemaObject->defaultValue){
-                        $change = true;
-                        $sqlChangeQuery .= "DEFAULT '" . $sourceColumn->defaultValue . "' ";
-                    }
-                }
-
-                if (!empty($sourceColumn->comment) && ($sourceColumn->comment !== $targetSchemaObject->comment)) {
-                    $change = true;
-                    $sqlChangeQuery .= "COMMENT '" . $sourceColumn->comment . "' ";
-                }
-
-                if($change){
-                    $sqlQuery = trim($sqlChangeQuery).";";
                 }
 
             } else {
 
-//                dd("NOT FOUND");
-//                dd($sourceColumn);
-//                dd($targetSchemaObject);
-                $sqlQuery = "ALTER TABLE `${tableName}` ADD `".$sourceColumn->name."` DATATYPE ";
+                $sqlQuery = "ALTER TABLE `${tableName}` ADD `" . $sourceColumn->name . "` DATATYPE CHARACTER_SET NULL_VALUE DEFAULT_VALUE COMMENT_VALUE AFTER_VALUE";
+                $sqlQuery = str_replace("CHARACTER_SET", self::getCollationSet($sourceColumn->name, $sourceSchema), $sqlQuery);
 
-                if(!empty($sourceColumn->enumValues)){
+                if (!empty($sourceColumn->enumValues)) {
                     $values = substr($sourceColumn->dbType, 4, strlen($sourceColumn->dbType));
                     $sqlQuery = str_replace("DATATYPE", "ENUM${values}", $sqlQuery);
-                }else{
+                } else {
                     $sqlQuery = str_replace("DATATYPE", strtoupper($sourceColumn->dbType), $sqlQuery);
                 }
 
                 if ($sourceColumn->allowNull) {
-                    $sqlQuery .= "NULL ";
+                    $sqlQuery = str_replace("NULL_VALUE", "NULL", $sqlQuery);
                 } else {
-                    $sqlQuery .= "NOT NULL ";
+                    $sqlQuery = str_replace("NULL_VALUE", "NOT NULL", $sqlQuery);
                 }
 
                 if (is_object($sourceColumn->defaultValue)) {
-                    $sqlQuery .= "DEFAULT ".$sourceColumn->defaultValue->expression." ";
-                }else{
-                    $sqlQuery .= "DEFAULT '" . $sourceColumn->defaultValue . "' ";
+                    if (empty($sourceColumn->defaultValue->expression)) {
+                        $sqlQuery = str_replace("DEFAULT_VALUE", "DEFAULT " . $sourceColumn->defaultValue->expression, $sqlQuery);
+                    }
+                } else {
+                    if(!empty($sourceColumn->defaultValue)){
+                        $sqlQuery = str_replace("DEFAULT_VALUE", "DEFAULT '" . $sourceColumn->defaultValue . "'", $sqlQuery);
+                    }
                 }
 
-                if (!empty($sourceColumn->comment) && ($sourceColumn->comment !== $targetSchemaObject->comment)) {
-                    $sqlQuery .= "COMMENT '" . $sourceColumn->comment . "' ";
+                if (!empty($sourceColumn->comment)) {
+                    $sqlQuery = str_replace("COMMENT_VALUE", "COMMENT '" . $sourceColumn->comment . "'", $sqlQuery);
                 }
 
                 if ($afterColumn) {
-                    $sqlQuery .= "AFTER '" . $afterColumn->name . "'";
+                    $sqlQuery = str_replace("AFTER_VALUE", "AFTER " . $afterColumn->name, $sqlQuery);
                 }
 
-                $sqlQuery = trim($sqlQuery).";";
+                $sqlQuery = self::customeSQLTrim($sqlQuery);
             }
             //dd($sqlQuery);
-            $afterColumn = $sourceColumn;
-
-            if(!empty($sqlQuery)){
-                $query[] =  $sqlQuery;
+            if (!empty($sqlQuery)) {
+                $alterQuery[] = $sqlQuery;
             }
-        }
 
-        return $query;
+            $afterColumn = $sourceColumn;
+        }
     }
 
 
@@ -178,17 +235,14 @@ class MySqlSchemaResolver
                     if (ArrayHelper::getValue($targetSchema, 'engine')) {
                         if ($sourceSchema->engine->tableCollation !== $targetSchema->engine->tableCollation) {
                             $characterSet = substr($sourceSchema->engine->tableCollation, 0, strpos($sourceSchema->engine->tableCollation, '_'));
-                            $alterQuery[] = "ALTER TABLE <table-name> CHARACTER SET `${characterSet}` COLLATE `".$sourceSchema->engine->tableCollation."`;";
+                            $alterQuery[] = "ALTER TABLE <table-name> CHARACTER SET `${characterSet}` COLLATE `" . $sourceSchema->engine->tableCollation . "`;";
                         }
                     }
                 }
 
                 // Find Missing Column Alter
                 if (ArrayHelper::getValue($sourceSchema, 'columns')) {
-                    $alterColumn =  self::alterColumn($tableName, $sourceSchema, $targetSchema );
-                    if(!empty($alterColumn)){
-                        $alterQuery[] = array_merge($alterQuery, $alterColumn);
-                    }
+                    self::alterColumn($tableName, $sourceSchema, $targetSchema, $alterQuery);
                 }
 
                 //Check if primary key is missing.
@@ -240,7 +294,6 @@ class MySqlSchemaResolver
                         $alterQuery[] = "ALTER TABLE `${tableName}` CHANGE `${autoIncrementKey}` `${autoIncrementKey}` INT NOT NULL AUTO_INCREMENT;";
                     }
                 }
-
 
                 //Check if unique column is missing.
                 $sourceUniqueColumns = $sourceConnection->schema->findUniqueIndexes($sourceSchema);
@@ -295,9 +348,9 @@ class MySqlSchemaResolver
                 }
 
                 //Check if index key is missing.
-                if (ArrayHelper::getValue($sourceSchema, 'index') && count(ArrayHelper::getValue($sourceSchema, 'index'))>0) {
+                if (ArrayHelper::getValue($sourceSchema, 'index') && count(ArrayHelper::getValue($sourceSchema, 'index')) > 0) {
                     foreach (ArrayHelper::getValue($sourceSchema, 'index') as $sourceIndex) {
-                        if (ArrayHelper::getValue($targetSchema, 'index') && count(ArrayHelper::getValue($targetSchema, 'index'))>0) {
+                        if (ArrayHelper::getValue($targetSchema, 'index') && count(ArrayHelper::getValue($targetSchema, 'index')) > 0) {
                             $isMatch = false;
                             foreach (ArrayHelper::getValue($targetSchema, 'index') as $targetIndex) {
                                 if ($sourceIndex['key'] === $targetIndex['key']) {
@@ -320,15 +373,16 @@ class MySqlSchemaResolver
                 $alterQuery[] = "SET FOREIGN_KEY_CHECKS=1;";
 
 
-                dd($alterQuery, count($alterQuery));die();
+                //dd($alterQuery, count($alterQuery));die();
 
-                dd(implode(" \n", $alterQuery));die();
+                dd(implode(" \n", $alterQuery));
+                die();
 
-                if ($alterQuery && count($alterQuery)>2) {
+                if ($alterQuery && count($alterQuery) > 2) {
                     $targetConnection->createCommand(implode(" \n", $alterQuery))->execute();
                     if ($model->save()) {
                         echo "${tableName} has been modified \n";
-                    }else {
+                    } else {
                         echo Json::encode($model->getErrors());
                     }
                 }
