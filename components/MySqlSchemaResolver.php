@@ -16,8 +16,8 @@ class MySqlSchemaResolver
 
     private static function isModifiedColumn($source, $target, $column, &$sourceSchema, &$targetSchema)
     {
-        if(self::isChangeCollationSet($column, $sourceSchema, $targetSchema)){
-            return  true;
+        if (self::isChangeCollationSet($column, $sourceSchema, $targetSchema)) {
+            return true;
         }
 
         if ($source->dbType !== $target->dbType) {
@@ -31,21 +31,21 @@ class MySqlSchemaResolver
         }
 
         if (is_object($source->defaultValue)) {
-            if(!is_object($target->defaultValue)) {
+            if (!is_object($target->defaultValue)) {
                 dd("defaultValueExpression");
                 return true;
             }
-
-            if(($source->defaultValue->expression !== $target->defaultValue->expression)) {
+            if (($source->defaultValue->expression !== $target->defaultValue->expression)) {
                 dd("defaultValueExpression");
+                return true;
+            }
+        } else {
+            if (($source->defaultValue) && ($source->defaultValue !== $target->defaultValue)) {
+                dd("defaultValue");
                 return true;
             }
         }
 
-        if (($source->defaultValue) && ($source->defaultValue !== $target->defaultValue)) {
-            dd("defaultValue");
-            return true;
-        }
 
         if (!empty($sourceColumn->enumValues) && (explode("", $sourceColumn->enumValues) !== explode(":", $target->enumValues))) {
             dd("enumValues");
@@ -68,19 +68,19 @@ class MySqlSchemaResolver
         $sourceCollations = ArrayHelper::getValue($sourceSchema, 'columnCollations');
         $targetCollations = ArrayHelper::getValue($targetSchema, 'columnCollations');
 
-        if( (isset($sourceCollations[$column]) && isset($targetCollations[$column])) &&
+        if ((isset($sourceCollations[$column]) && isset($targetCollations[$column])) &&
             $sourceCollations[$column]['COLLATION'] === $targetCollations[$column]['COLLATION']
         ) {
             return false;
         }
 
-        return  true;
+        return true;
     }
 
     private static function getCollationSet($column, &$sourceSchema)
     {
         $sourceCollations = ArrayHelper::getValue($sourceSchema, 'columnCollations');
-        if(!empty($sourceCollations[$column]['COLLATION'])){
+        if (!empty($sourceCollations[$column]['COLLATION'])) {
             $set = substr($sourceCollations[$column]['COLLATION'], 0, strpos($sourceCollations[$column]['COLLATION'], '_'));
             $collate = $sourceCollations[$column]['COLLATION'];
             return "CHARACTER SET ${set} COLLATE ${collate}";
@@ -90,13 +90,15 @@ class MySqlSchemaResolver
     private static function alterColumn(string &$tableName, &$sourceSchema, &$targetSchema, &$alterQuery)
     {
 
-        echo "<pre>";
-
         $query = [];
         $afterColumn = null;
         $targetSchemaObject = null;
         $sourceColumns = ArrayHelper::getValue($sourceSchema, 'columns');
         $targetColumns = ArrayHelper::getValue($targetSchema, 'columns');
+
+
+        $sourceForeignKeys = ArrayHelper::getValue($sourceSchema, 'foreignKeys');
+
 
         foreach ($sourceColumns as $sourceKey => $sourceColumn) {
             $sqlQuery = '';
@@ -113,10 +115,9 @@ class MySqlSchemaResolver
                 if (self::isModifiedColumn($sourceColumn, $targetSchemaObject, $sourceColumn->name, $sourceSchema, $targetSchema)) {
 
                     $sqlChangeQuery = "ALTER TABLE `${tableName}` CHANGE `" . $sourceColumn->name . "` `" . $sourceColumn->name . "` DATATYPE CHARACTER_SET NULL_VALUE DEFAULT_VALUE COMMENT_VALUE";
-
                     $sqlChangeQuery = str_replace("CHARACTER_SET", self::getCollationSet($sourceColumn->name, $sourceSchema), $sqlChangeQuery);
 
-                    if(!self::isChangeCollationSet($sourceColumn->name, $sourceSchema, $targetSchema)) {
+                    if (!self::isChangeCollationSet($sourceColumn->name, $sourceSchema, $targetSchema)) {
                         $sqlChangeQuery = str_replace("CHARACTER_SET", self::getCollationSet($sourceColumn->name, $sourceSchema), $sqlChangeQuery);
                     }
 
@@ -149,12 +150,16 @@ class MySqlSchemaResolver
 
                     $sqlQuery = self::customeSQLTrim($sqlChangeQuery);
 
+                    if (!empty($sqlQuery)) {
+                        $alterQuery[] = $sqlQuery;
+                    }
                 }
 
             } else {
 
                 $sqlQuery = "ALTER TABLE `${tableName}` ADD `" . $sourceColumn->name . "` DATATYPE CHARACTER_SET NULL_VALUE DEFAULT_VALUE COMMENT_VALUE AFTER_VALUE";
                 $sqlQuery = str_replace("CHARACTER_SET", self::getCollationSet($sourceColumn->name, $sourceSchema), $sqlQuery);
+
 
                 if (!empty($sourceColumn->enumValues)) {
                     $values = substr($sourceColumn->dbType, 4, strlen($sourceColumn->dbType));
@@ -169,12 +174,13 @@ class MySqlSchemaResolver
                     $sqlQuery = str_replace("NULL_VALUE", "NOT NULL", $sqlQuery);
                 }
 
+
                 if (is_object($sourceColumn->defaultValue)) {
-                    if (empty($sourceColumn->defaultValue->expression)) {
+                    if (!empty($sourceColumn->defaultValue->expression)) {
                         $sqlQuery = str_replace("DEFAULT_VALUE", "DEFAULT " . $sourceColumn->defaultValue->expression, $sqlQuery);
                     }
                 } else {
-                    if(!empty($sourceColumn->defaultValue)){
+                    if (!empty($sourceColumn->defaultValue)) {
                         $sqlQuery = str_replace("DEFAULT_VALUE", "DEFAULT '" . $sourceColumn->defaultValue . "'", $sqlQuery);
                     }
                 }
@@ -188,10 +194,29 @@ class MySqlSchemaResolver
                 }
 
                 $sqlQuery = self::customeSQLTrim($sqlQuery);
-            }
-            //dd($sqlQuery);
-            if (!empty($sqlQuery)) {
-                $alterQuery[] = $sqlQuery;
+
+                if (!empty($sqlQuery)) {
+                    $alterQuery[] = $sqlQuery;
+                }
+
+                //Find missing foreign keys
+                foreach ($sourceForeignKeys as $foreignKeyRelation => $foreignKey) {
+                    $relationTable = null;
+                    $sourceRelationColumn = null;
+                    $relationColumn = null;
+                    foreach ($foreignKey as $key => $value) {
+                        if(is_integer($key)){
+                            $relationTable = $value;
+                        }else{
+                            $relationColumn = $value;
+                            $sourceRelationColumn = $key;
+                        }
+                    }
+
+                    if($relationTable && $sourceColumn->name===$sourceRelationColumn){
+                        $alterQuery[] = "ALTER TABLE `${tableName}` ADD CONSTRAINT `${foreignKeyRelation}` FOREIGN KEY (`${sourceRelationColumn}`) REFERENCES `role`(`${relationColumn}`) ON DELETE CASCADE ON UPDATE CASCADE; ";
+                    }
+                }
             }
 
             $afterColumn = $sourceColumn;
@@ -372,11 +397,8 @@ class MySqlSchemaResolver
 
                 $alterQuery[] = "SET FOREIGN_KEY_CHECKS=1;";
 
-
                 //dd($alterQuery, count($alterQuery));die();
-
-                dd(implode(" \n", $alterQuery));
-                die();
+                //dd(implode(" \n", $alterQuery));die();
 
                 if ($alterQuery && count($alterQuery) > 2) {
                     $targetConnection->createCommand(implode(" \n", $alterQuery))->execute();
